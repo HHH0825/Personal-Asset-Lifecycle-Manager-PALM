@@ -38,4 +38,8 @@ with app.test_client() as client:
         "disposed_on": day(12), "method": "discarded", "proceeds": "0", "notes": "伞骨损坏",
     })
 
-print("已导入 4 件演示物品：使用中、闲置、维修后出售、丢弃。")
+    keyboard = add_item("机械键盘", "数码设备", 240, "359.00")
+    client.post(f"/api/items/{keyboard}/usage", json={"used_on": day(120), "notes": "完成一次长篇写作"})
+    add_item("备用充电宝", "数码设备", 100, "129.00", notes="尚未填写使用记录")
+
+print("已导入 6 件演示物品，覆盖费用分析、闲置复盘、记录缺口与处置试算。")

@@ -1,7 +1,7 @@
 """PALM: a small, local personal asset lifecycle manager."""
 
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 import sqlite3
 
@@ -125,6 +125,12 @@ def create_app(test_config=None):
     def money(cents):
         return f"{cents / 100:.2f}"
 
+    def daily_cost(cents, days):
+        if days == 0:
+            return None
+        return str((Decimal(cents) / (Decimal(days) * 100)).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP))
+
     def item_row(item_id):
         row = db().execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
         if not row:
@@ -144,19 +150,24 @@ def create_app(test_config=None):
         maintenance_cents = db().execute(
             "SELECT COALESCE(SUM(cost_cents), 0) FROM maintenance_records WHERE item_id = ?", (item_id,)
         ).fetchone()[0]
-        usage_count = db().execute(
-            "SELECT COUNT(*) FROM usage_records WHERE item_id = ?", (item_id,)
-        ).fetchone()[0]
+        usage_summary = db().execute(
+            "SELECT COUNT(*) AS count, MAX(used_on) AS last_used_on FROM usage_records WHERE item_id = ?", (item_id,)
+        ).fetchone()
         disposal = db().execute("SELECT * FROM disposal_records WHERE item_id = ?", (item_id,)).fetchone()
         end = date.fromisoformat(disposal["disposed_on"]) if disposal else date.today()
+        holding_days = (end - date.fromisoformat(row["purchase_date"])).days
+        net_cents = row["purchase_cents"] + maintenance_cents - (disposal["proceeds_cents"] if disposal else 0)
         result = {
             "id": item_id, "name": row["name"], "category": row["category"],
             "purchase_date": row["purchase_date"], "purchase_price": money(row["purchase_cents"]),
             "notes": row["notes"], "status": row["status"],
-            "maintenance_total": money(maintenance_cents), "usage_count": usage_count,
+            "maintenance_total": money(maintenance_cents), "usage_count": usage_summary["count"],
+            "last_recorded_use": usage_summary["last_used_on"],
             "disposal_proceeds": money(disposal["proceeds_cents"] if disposal else 0),
-            "net_cost": money(row["purchase_cents"] + maintenance_cents - (disposal["proceeds_cents"] if disposal else 0)),
-            "holding_days": (end - date.fromisoformat(row["purchase_date"])).days,
+            "net_cost": money(net_cents),
+            "holding_days": holding_days,
+            "daily_purchase_cost": daily_cost(row["purchase_cents"], holding_days),
+            "daily_net_cost": daily_cost(net_cents, holding_days),
         }
         if details:
             result["usage_records"] = [dict(r) for r in db().execute(
@@ -355,6 +366,53 @@ def create_app(test_config=None):
             "disposal_total": money(sum(int(Decimal(p["disposal_proceeds"]) * 100) for p in payloads)),
             "net_cost_total": money(sum(int(Decimal(p["net_cost"]) * 100) for p in payloads)),
             "categories": [{"name": name, "amount": money(amount)} for name, amount in sorted(category.items(), key=lambda x: -x[1])],
+        })
+
+    @app.get("/api/insights")
+    def insights():
+        today = date.today()
+        months = []
+        for offset in range(11, -1, -1):
+            absolute_month = today.year * 12 + today.month - 1 - offset
+            year, month_index = divmod(absolute_month, 12)
+            months.append(f"{year:04d}-{month_index + 1:02d}")
+        monthly = {month: {"purchase": 0, "maintenance": 0, "proceeds": 0} for month in months}
+        for table, date_column, amount_column, key in (
+            ("items", "purchase_date", "purchase_cents", "purchase"),
+            ("maintenance_records", "maintained_on", "cost_cents", "maintenance"),
+            ("disposal_records", "disposed_on", "proceeds_cents", "proceeds"),
+        ):
+            rows = db().execute(
+                f"SELECT substr({date_column}, 1, 7) AS month, SUM({amount_column}) AS total "
+                f"FROM {table} WHERE {date_column} >= ? GROUP BY substr({date_column}, 1, 7)",
+                (months[0] + "-01",),
+            )
+            for row in rows:
+                if row["month"] in monthly:
+                    monthly[row["month"]][key] = row["total"]
+
+        review = []
+        unrecorded = []
+        for row in db().execute("SELECT * FROM items WHERE status != 'disposed' ORDER BY id DESC"):
+            item = item_payload(row)
+            last_used = item["last_recorded_use"]
+            days_since = (today - date.fromisoformat(last_used)).days if last_used else None
+            item["days_since_last_recorded_use"] = days_since
+            if row["status"] == "idle":
+                item["review_reason"] = "manual_idle"
+                review.append(item)
+            elif days_since is not None and days_since >= 90:
+                item["review_reason"] = "no_recent_record"
+                review.append(item)
+            elif last_used is None:
+                unrecorded.append(item)
+        review.sort(key=lambda item: (item["review_reason"] != "manual_idle", -(item["days_since_last_recorded_use"] or 0)))
+        return jsonify({
+            "months": [{"month": month, **{key: money(value) for key, value in monthly[month].items()}}
+                       for month in months],
+            "review_threshold_days": 90,
+            "review_items": review,
+            "unknown_usage_items": unrecorded,
         })
 
     return app

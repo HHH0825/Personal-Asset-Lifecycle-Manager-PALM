@@ -7,13 +7,17 @@ const todayLocal = () => {
 };
 let allItems = [];
 let currentItem = null;
+let detailReturnView = 'items';
 let formState = null;
 let toastTimer;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }
-function yuan(value) { return `¥${Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+function yuan(value) {
+  const amount = Number(value);
+  return `${amount < 0 ? '-' : ''}¥${Math.abs(amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 function showToast(message, error = false) {
   const el = $('#toast');
   el.textContent = message;
@@ -38,20 +42,21 @@ async function run(action, successMessage) {
 function showView(name) {
   for (const view of document.querySelectorAll('.view')) view.classList.toggle('hidden', view.id !== `${name}-view`);
   for (const link of document.querySelectorAll('.nav-link')) link.classList.toggle('active', link.dataset.view === name);
-  $('#page-title').textContent = ({ dashboard: '数据概览', items: '我的物品', detail: '物品详情' })[name];
-  $('#section-number').textContent = name === 'dashboard' ? '01' : '02';
+  $('#page-title').textContent = ({ dashboard: '数据概览', items: '我的物品', review: '待复盘', detail: '物品详情' })[name];
+  $('#section-number').textContent = ({ dashboard: '01', items: '02', review: '03', detail: '02' })[name];
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function badge(status) { return `<span class="badge ${escapeHtml(status)}">${statusNames[status]}</span>`; }
 function empty(title, subtitle = '') { return `<div class="empty"><strong>${title}</strong>${subtitle}</div>`; }
 
 async function refreshAll() {
-  const [items, stats] = await Promise.all([api('/api/items'), api('/api/stats')]);
+  const [items, stats, insights] = await Promise.all([api('/api/items'), api('/api/stats'), api('/api/insights')]);
   allItems = items;
-  renderDashboard(stats);
+  renderDashboard(stats, insights);
   renderItems();
+  renderReview(insights);
 }
-function renderDashboard(stats) {
+function renderDashboard(stats, insights) {
   const cards = [
     ['物品总数', stats.total_items, '件已记录的物品'],
     ['累计购买费用', yuan(stats.purchase_total), '所有物品的购买价格'],
@@ -63,17 +68,49 @@ function renderDashboard(stats) {
   $('#category-chart').innerHTML = stats.categories.length ? stats.categories.map((item) => `<div class="bar-row"><span class="bar-label" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, Number(item.amount) / max * 100)}%"></div></div><span class="bar-amount">${yuan(item.amount)}</span></div>`).join('') : empty('暂无分类数据', '添加物品后，这里会显示金额分布。');
   $('#status-chart').innerHTML = Object.entries(statusNames).map(([key, label]) => `<div class="status-row"><span>${label}</span><div class="status-track"><div class="status-fill ${key}" style="width:${stats.total_items ? stats.status_counts[key] / stats.total_items * 100 : 0}%"></div></div><strong>${stats.status_counts[key]}</strong></div>`).join('');
   $('#recent-items').innerHTML = allItems.length ? allItems.slice(0, 4).map((item, index) => `<div class="mini-item"><div class="mini-icon">${String(index + 1).padStart(2, '0')}</div><div class="mini-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${item.purchase_date}</small></div>${badge(item.status)}<span class="mini-price">${yuan(item.purchase_price)}</span></div>`).join('') : empty('还没有物品', '点击右上角“添加物品”开始记录。');
+  const maxMonthly = Math.max(1, ...insights.months.flatMap((month) => [Number(month.purchase), Number(month.maintenance), Number(month.proceeds)]));
+  $('#monthly-chart').innerHTML = insights.months.map((month) => {
+    const label = `${month.month}：购买 ${yuan(month.purchase)}，维修 ${yuan(month.maintenance)}，回收 ${yuan(month.proceeds)}`;
+    const bars = [['purchase', month.purchase], ['maintenance', month.maintenance], ['proceeds', month.proceeds]]
+      .map(([kind, amount]) => `<span class="cash-bar ${kind}" style="height:${Number(amount) ? Math.max(4, Number(amount) / maxMonthly * 135) : 0}px"></span>`).join('');
+    return `<div class="cash-month" title="${label}"><div class="cash-bars" role="img" aria-label="${label}">${bars}</div><span>${month.month.slice(5)}</span><small>${month.month.slice(2, 4)}年</small></div>`;
+  }).join('');
 }
 function renderItems() {
   const keyword = $('#search-input').value.trim().toLocaleLowerCase();
   const status = $('#status-filter').value;
   const filtered = allItems.filter((item) => (status === 'all' || item.status === status) && (`${item.name} ${item.category}`).toLocaleLowerCase().includes(keyword));
   $('#item-count').textContent = `${filtered.length} 件物品`;
-  $('#items-list').innerHTML = filtered.length ? filtered.map((item, index) => `<article class="item-card" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}"><div class="item-icon">${String(index + 1).padStart(2, '0')}</div><div class="item-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · 购买于 ${item.purchase_date}</small></div>${badge(item.status)}<div class="item-cost">${yuan(item.net_cost)}<small>累计净成本</small></div></article>`).join('') : empty('没有找到物品', '可以调整搜索词或状态筛选。');
+  $('#items-list').innerHTML = filtered.length ? filtered.map((item, index) => `
+    <article class="item-card" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}">
+      <div class="item-icon">${String(index + 1).padStart(2, '0')}</div>
+      <div class="item-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · 购买于 ${item.purchase_date}<br>累计净成本 ${yuan(item.net_cost)}</small></div>
+      <div class="item-status">${badge(item.status)}</div>
+      <div class="item-days"><span>${item.status === 'disposed' ? '曾持有' : '已持有'}</span><strong>${item.holding_days} 天</strong></div>
+      <div class="item-daily purchase"><span>购买价/天</span><strong>${item.daily_purchase_cost === null ? '暂无' : yuan(item.daily_purchase_cost)}</strong></div>
+      <div class="item-daily net"><span>净成本/天</span><strong>${item.daily_net_cost === null ? '暂无' : yuan(item.daily_net_cost)}</strong></div>
+    </article>`).join('') : empty('没有找到物品', '可以调整搜索词或状态筛选。');
+}
+function reviewRow(item, reason) {
+  const description = reason === 'manual_idle' ? '已手动标记闲置' : reason === 'no_recent_record'
+    ? `距最近一次记录的使用 ${item.days_since_last_recorded_use} 天` : '尚无使用记录，请按实际情况核对';
+  return `<article class="review-item" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}"><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${description}</small></div><div class="review-cost"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><span class="review-arrow" aria-hidden="true">↗</span></article>`;
+}
+function renderReview(insights) {
+  $('#review-count').textContent = `${insights.review_items.length} 件待核对`;
+  $('#review-items').innerHTML = insights.review_items.length
+    ? insights.review_items.map((item) => reviewRow(item, item.review_reason)).join('')
+    : empty('目前没有待复盘物品', '手动标记闲置，或录入关键使用记录后，这里会给出核对线索。');
+  $('#unknown-items').innerHTML = insights.unknown_usage_items.length
+    ? insights.unknown_usage_items.map((item) => reviewRow(item, 'unknown')).join('')
+    : empty('没有记录缺口', '使用中的物品都已有至少一条使用记录。');
 }
 async function openItem(id) {
+  if (!$('#review-view').classList.contains('hidden')) detailReturnView = 'review';
+  else if (!$('#items-view').classList.contains('hidden')) detailReturnView = 'items';
   currentItem = await api(`/api/items/${id}`);
   renderDetail();
+  $('#back-btn').textContent = detailReturnView === 'review' ? '← 返回待复盘' : '← 返回物品清单';
   showView('detail');
 }
 function timeline(item) {
@@ -88,7 +125,39 @@ function timeline(item) {
 function renderDetail() {
   const item = currentItem;
   if (!item) return;
-  $('#detail-content').innerHTML = `<div class="detail-hero"><div class="detail-top"><div class="item-icon">№</div><div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · 购买于 ${item.purchase_date}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div><div class="detail-metrics"><div><span>购买价格</span><strong>${yuan(item.purchase_price)}</strong></div><div><span>维修费用</span><strong>${yuan(item.maintenance_total)}</strong></div><div><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><div><span>持有天数 · 使用 ${item.usage_count} 次</span><strong>${item.holding_days} 天</strong></div></div></div><div class="detail-grid"><div><section class="detail-section"><div class="section-heading"><h3>生命周期时间线</h3></div>${timeline(item)}</section></div><div><section class="detail-section"><h3>记录操作</h3><div class="detail-actions"><button class="small-btn" data-action="add-usage" ${item.status === 'disposed' ? 'disabled' : ''}>＋ 使用记录</button><button class="small-btn" data-action="add-maintenance" ${item.status === 'disposed' ? 'disabled' : ''}>＋ 维修记录</button>${item.disposal ? '' : '<button class="small-btn" data-action="add-disposal">＋ 处置物品</button>'}</div></section><section class="detail-section"><h3>物品备注</h3><div class="note-text">${item.notes ? escapeHtml(item.notes) : '暂无备注'}</div></section><section class="detail-section"><h3>计算说明</h3><p class="note-text">净成本 = 购买价格 + 维修费用 − 处置回收金额。<br>持有天数从购买日算至${item.disposal ? '处置日' : '今天'}。</p></section></div></div>`;
+  const preview = item.status === 'disposed' ? '' : `<section class="detail-section preview-section"><h3>处置前试算</h3><label class="preview-label" for="preview-proceeds">预计回收金额（元）</label><input id="preview-proceeds" type="number" min="0" max="999999999" step="0.01" inputmode="decimal" placeholder="例如 200.00"><div id="preview-result" class="preview-result" aria-live="polite">输入预计回收金额，查看处置后的净成本。</div><p class="hint">仅供参考，试算不会保存数据或改变物品状态。</p></section>`;
+  $('#detail-content').innerHTML = `
+    <div class="detail-hero">
+      <div class="detail-top"><div class="item-icon">№</div><div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · 购买于 ${item.purchase_date}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div>
+      <div class="detail-metrics"><div><span>购买价格</span><strong>${yuan(item.purchase_price)}</strong></div><div><span>维修费用</span><strong>${yuan(item.maintenance_total)}</strong></div><div><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><div><span>${item.status === 'disposed' ? '曾持有' : '已持有'} · 使用记录 ${item.usage_count} 条</span><strong>${item.holding_days} 天</strong></div></div>
+    </div>
+    <div class="detail-grid"><div><section class="detail-section"><div class="section-heading"><h3>生命周期时间线</h3></div>${timeline(item)}</section></div>
+    <div><section class="detail-section cost-section"><h3>持有成本</h3><div class="daily-cost"><span>购买价/天</span><strong>${item.daily_purchase_cost === null ? '暂无' : yuan(item.daily_purchase_cost)}</strong></div><div class="daily-cost"><span>净成本/天</span><strong>${item.daily_net_cost === null ? '暂无' : yuan(item.daily_net_cost)}</strong></div><p class="note-text">${item.daily_net_cost === null ? '持有不足一天，暂不计算日均花费。' : `按 ${item.holding_days} 天持有时间计算。`}<br>净成本包含维修费用，并扣除处置回收金额。<br>最近一次记录的使用：${item.last_recorded_use || '未记录'}</p></section>
+    ${preview}
+    <section class="detail-section"><h3>记录操作</h3><div class="detail-actions"><button class="small-btn" data-action="add-usage" ${item.status === 'disposed' ? 'disabled' : ''}>＋ 使用记录</button><button class="small-btn" data-action="add-maintenance" ${item.status === 'disposed' ? 'disabled' : ''}>＋ 维修记录</button>${item.disposal ? '' : '<button class="small-btn" data-action="add-disposal">＋ 处置物品</button>'}</div></section>
+    <section class="detail-section"><h3>物品备注</h3><div class="note-text">${item.notes ? escapeHtml(item.notes) : '暂无备注'}</div></section>
+    <section class="detail-section"><h3>计算说明</h3><p class="note-text">净成本 = 购买价格 + 维修费用 − 处置回收金额。<br>持有天数从购买日算至${item.disposal ? '处置日' : '今天'}。</p></section></div></div>`;
+}
+
+function updateDisposalPreview() {
+  const input = $('#preview-proceeds');
+  const result = $('#preview-result');
+  if (!input || !result || !currentItem) return;
+  const raw = input.value.trim();
+  result.classList.remove('has-values');
+  if (!raw) { result.textContent = '输入预计回收金额，查看处置后的净成本。'; return; }
+  if (!/^\d+(\.\d{1,2})?$/.test(raw) || Number(raw) > 999999999) {
+    result.textContent = '请输入非负金额，最多两位小数。';
+    return;
+  }
+  const purchase = Math.round(Number(currentItem.purchase_price) * 100);
+  const maintenance = Math.round(Number(currentItem.maintenance_total) * 100);
+  const proceeds = Math.round(Number(raw) * 100);
+  const base = purchase + maintenance;
+  const projected = (base - proceeds) / 100;
+  const recovery = base ? `${(proceeds / base * 100).toFixed(1)}%` : '暂无（累计支出为零）';
+  result.innerHTML = `<div><span>预计净成本</span><strong>${yuan(projected)}</strong></div><div><span>回收比例</span><strong>${recovery}</strong></div>`;
+  result.classList.add('has-values');
 }
 
 const field = (name, label, type = 'text', opts = {}) => `<label class="field ${opts.wide ? 'wide' : ''}"><span>${label}${opts.required ? ' *' : ''}</span>${type === 'textarea' ? `<textarea name="${name}" maxlength="${opts.max || 1000}" ${opts.required ? 'required' : ''}></textarea>` : type === 'select' ? `<select name="${name}">${opts.options.map(([value, text]) => `<option value="${value}">${text}</option>`).join('')}</select>` : `<input name="${name}" type="${type}" ${type === 'number' ? 'min="0" step="0.01"' : ''} ${type === 'date' ? `max="${todayLocal()}"` : ''} ${opts.max ? `maxlength="${opts.max}"` : ''} ${opts.required ? 'required' : ''}>`}</label>`;
@@ -167,8 +236,11 @@ document.addEventListener('keydown', (event) => {
   const card = event.target.closest('[data-open-item]');
   if (card && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); run(() => openItem(Number(card.dataset.openItem))); }
 });
+document.addEventListener('input', (event) => {
+  if (event.target.id === 'preview-proceeds') updateDisposalPreview();
+});
 $('#add-item-btn').addEventListener('click', () => openForm('item'));
-$('#back-btn').addEventListener('click', () => showView('items'));
+$('#back-btn').addEventListener('click', () => showView(detailReturnView));
 $('#search-input').addEventListener('input', renderItems);
 $('#status-filter').addEventListener('change', renderItems);
 $('#entity-form').addEventListener('submit', saveForm);

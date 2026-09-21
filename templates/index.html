@@ -18,6 +18,7 @@
       <nav aria-label="主导航">
         <button class="nav-link active" data-view="dashboard"><span class="nav-index">01</span><span>总览</span></button>
         <button class="nav-link" data-view="items"><span class="nav-index">02</span><span>物品档案</span></button>
+        <button class="nav-link" data-view="review"><span class="nav-index">03</span><span>待复盘</span></button>
       </nav>
       <div class="sidebar-foot"><span>PALM / PERSONAL ARCHIVE</span><br>留存购买、使用与去向。</div>
     </aside>
@@ -38,21 +39,28 @@
         <div class="content-label"><span>01 / 资产概况</span><span>以历史记录为准</span></div>
         <div id="stats-grid" class="stats-grid"></div>
 
+        <section class="panel cashflow-panel">
+          <div class="section-heading"><div><span class="eyebrow">02 / 费用流向</span><h2>近 12 个月</h2></div><span class="section-aside">按发生月份统计 · 单位：元</span></div>
+          <div class="cashflow-legend"><span><i class="legend-purchase"></i>购买支出</span><span><i class="legend-maintenance"></i>维修支出</span><span><i class="legend-proceeds"></i>处置回收</span></div>
+          <div class="cashflow-scroll"><div id="monthly-chart" class="monthly-chart"></div></div>
+          <p class="hint">本图仅显示近 12 个月，顶部累计金额仍包含全部历史记录。窄屏可左右滑动查看月份。</p>
+        </section>
+
         <div class="dashboard-columns">
           <section class="panel">
-            <div class="section-heading"><div><span class="eyebrow">02 / 分类</span><h2>资产结构</h2></div><span class="section-aside">按购买金额</span></div>
+            <div class="section-heading"><div><span class="eyebrow">03 / 分类</span><h2>资产结构</h2></div><span class="section-aside">按购买金额</span></div>
             <div id="category-chart" class="chart"></div>
             <p class="hint">金额按物品购买价格汇总，单位为元。</p>
           </section>
           <section class="panel">
-            <div class="section-heading"><div><span class="eyebrow">03 / 状态</span><h2>生命周期</h2></div><span class="section-aside">当前分布</span></div>
+            <div class="section-heading"><div><span class="eyebrow">04 / 状态</span><h2>生命周期</h2></div><span class="section-aside">当前分布</span></div>
             <div id="status-chart" class="status-chart"></div>
             <p class="hint">处置状态随处置记录更新。</p>
           </section>
         </div>
 
         <section class="panel recent-panel">
-          <div class="section-heading"><div><span class="eyebrow">04 / 最近</span><h2>新近归档</h2></div><button class="text-btn" data-view="items">全部物品 <span aria-hidden="true">↗</span></button></div>
+          <div class="section-heading"><div><span class="eyebrow">05 / 最近</span><h2>新近归档</h2></div><button class="text-btn" data-view="items">全部物品 <span aria-hidden="true">↗</span></button></div>
           <div id="recent-items"></div>
         </section>
         <p class="formula"><strong>计算方式</strong>　净成本 = 购买价格 + 维修费用 − 处置回收金额；持有天数从购买日算至处置日，未处置物品算至今天。</p>
@@ -64,8 +72,15 @@
           <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="搜索名称或分类" aria-label="搜索名称或分类"></label>
           <select id="status-filter" aria-label="筛选状态"><option value="all">全部状态</option><option value="active">使用中</option><option value="idle">闲置</option><option value="disposed">已处置</option></select>
         </div>
-        <div class="list-columns" aria-hidden="true"><span>物品 / 分类</span><span>状态</span><span>累计净成本</span></div>
+        <div class="list-columns" aria-hidden="true"><span>物品 / 分类</span><span>状态</span><span>持有天数</span><span>购买价/天</span><span>净成本/天</span></div>
         <div id="items-list" class="items-list"></div>
+      </section>
+
+      <section id="review-view" class="view hidden">
+        <div class="list-intro"><div><span class="eyebrow">物品档案 / 人工复盘</span><p>从闲置状态和最近的使用记录里，找出值得重新看看的一些物品。</p></div><span id="review-count" class="count-chip"></span></div>
+        <p class="review-notice">这里的提示仅供核对：关键使用记录可能不完整。系统不会自动把物品改为闲置，也不会替你决定是否处置。</p>
+        <section class="panel review-section"><div class="section-heading"><div><span class="eyebrow">01 / 待核对</span><h2>复盘清单</h2></div><span class="section-aside">手动闲置，或距最近记录 ≥ 90 天</span></div><div id="review-items"></div></section>
+        <section class="panel review-section"><div class="section-heading"><div><span class="eyebrow">02 / 记录缺口</span><h2>使用情况未知</h2></div></div><p class="hint">以下使用中的物品没有使用记录，因此不参与 90 天判断。</p><div id="unknown-items"></div></section>
       </section>
 
       <section id="detail-view" class="view hidden"><button id="back-btn" class="text-btn back-btn">← 返回物品清单</button><div id="detail-content"></div></section>
