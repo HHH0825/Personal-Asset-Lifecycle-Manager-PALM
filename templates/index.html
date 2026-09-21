@@ -10,27 +10,76 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="#dashboard" aria-label="PALM 首页"><span class="brand-mark">P</span><span>PALM<small>个人物品资产管理</small></span></a>
+      <a class="brand" href="#dashboard" aria-label="PALM 首页">
+        <span class="brand-mark" aria-hidden="true">p.</span>
+        <span class="brand-name">PALM<small>个人物品档案</small></span>
+      </a>
+      <div class="sidebar-caption">你的日常，值得妥善记录。</div>
       <nav aria-label="主导航">
-        <button class="nav-link active" data-view="dashboard"><span>◫</span> 数据概览</button>
-        <button class="nav-link" data-view="items"><span>▦</span> 我的物品</button>
+        <button class="nav-link active" data-view="dashboard"><span class="nav-index">01</span><span>总览</span></button>
+        <button class="nav-link" data-view="items"><span class="nav-index">02</span><span>物品档案</span></button>
       </nav>
-      <div class="sidebar-foot">记录每件物品的来路与去向。<br><span>本地单用户版本</span></div>
+      <div class="sidebar-foot"><span>PALM / PERSONAL ARCHIVE</span><br>留存购买、使用与去向。</div>
     </aside>
+
     <main class="main-content">
-      <header class="topbar"><div><span class="eyebrow">PERSONAL ASSET LIFECYCLE MANAGER</span><h1 id="page-title">数据概览</h1></div><button class="primary-btn" id="add-item-btn">＋ 添加物品</button></header>
+      <header class="topbar">
+        <div><span class="eyebrow">个人资产档案 / <span id="section-number">01</span></span><h1 id="page-title">数据概览</h1></div>
+        <button class="primary-btn" id="add-item-btn"><span aria-hidden="true">＋</span> 添加物品</button>
+      </header>
+
       <section id="dashboard-view" class="view">
-        <div class="welcome"><div><span class="eyebrow">WELCOME TO PALM</span><h2>让每件物品都有迹可循</h2><p>从购买到处置，清楚了解物品的使用与花费。</p></div><div class="welcome-symbol" aria-hidden="true">✳</div></div>
+        <div class="welcome">
+          <div><span class="eyebrow">写给日常的账本</span><h2>物有所记，<br>用有所知。</h2></div>
+          <p>从购入的那一天起，记下使用、维护与去向。<br>每一次选择，都有迹可循。</p>
+          <span class="welcome-seal" aria-hidden="true">物<br>记</span>
+        </div>
+
+        <div class="content-label"><span>01 / 资产概况</span><span>以历史记录为准</span></div>
         <div id="stats-grid" class="stats-grid"></div>
-        <div class="dashboard-columns"><section class="panel"><div class="section-heading"><div><span class="eyebrow">ASSET STRUCTURE</span><h2>分类资产金额</h2></div></div><div id="category-chart" class="chart"></div><p class="hint">按购买价格汇总，单位：元</p></section><section class="panel"><div class="section-heading"><div><span class="eyebrow">LIFECYCLE</span><h2>物品状态</h2></div></div><div id="status-chart" class="status-chart"></div><p class="hint">状态由使用中、闲置和处置记录决定。</p></section></div>
-        <section class="panel recent-panel"><div class="section-heading"><div><span class="eyebrow">RECENT ITEMS</span><h2>最近添加</h2></div><button class="text-btn" data-view="items">查看全部 →</button></div><div id="recent-items"></div></section>
-        <p class="formula">统计口径：净成本 = 购买价格 + 维修费用 − 处置回收金额；持有天数从购买日算至处置日，未处置物品算至今天。</p>
+
+        <div class="dashboard-columns">
+          <section class="panel">
+            <div class="section-heading"><div><span class="eyebrow">02 / 分类</span><h2>资产结构</h2></div><span class="section-aside">按购买金额</span></div>
+            <div id="category-chart" class="chart"></div>
+            <p class="hint">金额按物品购买价格汇总，单位为元。</p>
+          </section>
+          <section class="panel">
+            <div class="section-heading"><div><span class="eyebrow">03 / 状态</span><h2>生命周期</h2></div><span class="section-aside">当前分布</span></div>
+            <div id="status-chart" class="status-chart"></div>
+            <p class="hint">处置状态随处置记录更新。</p>
+          </section>
+        </div>
+
+        <section class="panel recent-panel">
+          <div class="section-heading"><div><span class="eyebrow">04 / 最近</span><h2>新近归档</h2></div><button class="text-btn" data-view="items">全部物品 <span aria-hidden="true">↗</span></button></div>
+          <div id="recent-items"></div>
+        </section>
+        <p class="formula"><strong>计算方式</strong>　净成本 = 购买价格 + 维修费用 − 处置回收金额；持有天数从购买日算至处置日，未处置物品算至今天。</p>
       </section>
-      <section id="items-view" class="view hidden"><div class="section-heading list-heading"><div><span class="eyebrow">MY COLLECTION</span><h2>我的物品</h2></div><span id="item-count" class="count-chip"></span></div><div class="toolbar"><label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="搜索名称或分类" aria-label="搜索名称或分类"></label><select id="status-filter" aria-label="筛选状态"><option value="all">全部状态</option><option value="active">使用中</option><option value="idle">闲置</option><option value="disposed">已处置</option></select></div><div id="items-list" class="items-list"></div></section>
-      <section id="detail-view" class="view hidden"><button id="back-btn" class="text-btn back-btn">← 返回物品列表</button><div id="detail-content"></div></section>
+
+      <section id="items-view" class="view hidden">
+        <div class="list-intro"><div><span class="eyebrow">物品档案 / 清单</span><p>在这里查看每件物品的来路、花费与去向。</p></div><span id="item-count" class="count-chip"></span></div>
+        <div class="toolbar">
+          <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="搜索名称或分类" aria-label="搜索名称或分类"></label>
+          <select id="status-filter" aria-label="筛选状态"><option value="all">全部状态</option><option value="active">使用中</option><option value="idle">闲置</option><option value="disposed">已处置</option></select>
+        </div>
+        <div class="list-columns" aria-hidden="true"><span>物品 / 分类</span><span>状态</span><span>累计净成本</span></div>
+        <div id="items-list" class="items-list"></div>
+      </section>
+
+      <section id="detail-view" class="view hidden"><button id="back-btn" class="text-btn back-btn">← 返回物品清单</button><div id="detail-content"></div></section>
     </main>
   </div>
+
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <dialog id="form-dialog"><form id="entity-form" method="dialog"><div class="dialog-heading"><div><span class="eyebrow">PALM RECORD</span><h2 id="dialog-title"></h2></div><button type="button" id="close-dialog" class="icon-btn" aria-label="关闭">×</button></div><div id="form-fields" class="form-fields"></div><p id="form-error" class="form-error hidden" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-dialog" class="secondary-btn">取消</button><button type="submit" class="primary-btn">保存</button></div></form></dialog>
+  <dialog id="form-dialog">
+    <form id="entity-form" method="dialog">
+      <div class="dialog-heading"><div><span class="eyebrow">物品档案 / 填写记录</span><h2 id="dialog-title"></h2></div><button type="button" id="close-dialog" class="icon-btn" aria-label="关闭">×</button></div>
+      <div id="form-fields" class="form-fields"></div>
+      <p id="form-error" class="form-error hidden" role="alert"></p>
+      <div class="dialog-actions"><button type="button" id="cancel-dialog" class="secondary-btn">取消</button><button type="submit" class="primary-btn">保存记录</button></div>
+    </form>
+  </dialog>
 </body>
 </html>
