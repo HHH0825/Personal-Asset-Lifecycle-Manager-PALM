@@ -17,14 +17,14 @@
   </section>
   <div id="app-shell" class="app-shell hidden">
     <aside class="sidebar">
-      <a class="brand" href="#dashboard" aria-label="PALM 首页">
+      <a class="brand" href="#items" data-view="items" aria-label="PALM 物品主页">
         <span class="brand-mark" aria-hidden="true">p.</span>
         <span class="brand-name">PALM<small>个人物品档案</small></span>
       </a>
       <div class="sidebar-caption">你的日常，值得妥善记录。</div>
       <nav aria-label="主导航">
-        <button class="nav-link active" data-view="dashboard"><span class="nav-index">01</span><span>总览</span></button>
-        <button class="nav-link" data-view="items"><span class="nav-index">02</span><span>物品档案</span></button>
+        <button class="nav-link active" data-view="items"><span class="nav-index">01</span><span>物品档案</span></button>
+        <button class="nav-link" data-view="dashboard"><span class="nav-index">02</span><span>数据概览</span></button>
         <button class="nav-link" data-view="review"><span class="nav-index">03</span><span>待复盘</span></button>
       </nav>
       <div class="sidebar-foot"><span>PALM / PERSONAL ARCHIVE</span><br>留存购买、使用与去向。</div>
@@ -32,11 +32,11 @@
 
     <main class="main-content">
       <header class="topbar">
-        <div><span class="eyebrow">个人资产档案 / <span id="section-number">01</span></span><h1 id="page-title">数据概览</h1></div>
+        <div><span class="eyebrow">个人资产档案 / <span id="section-number">01</span></span><h1 id="page-title">我的物品</h1></div>
         <div class="topbar-actions"><div class="account-controls"><span id="account-name"></span><button id="logout-btn" type="button" class="text-btn">退出登录</button></div><button class="primary-btn" id="add-item-btn"><span aria-hidden="true">＋</span> 添加物品</button></div>
       </header>
 
-      <section id="dashboard-view" class="view">
+      <section id="dashboard-view" class="view hidden">
         <div class="welcome">
           <div><span class="eyebrow">写给日常的账本</span><h2>物有所记，<br>用有所知。</h2></div>
           <p>从购入的那一天起，记下使用、维护与去向。<br>每一次选择，都有迹可循。</p>
@@ -73,13 +73,12 @@
         <p class="formula"><strong>计算方式</strong>　净成本 = 购买价格 + 维修费用 − 处置回收金额；持有天数从购买日算至处置日，未处置物品算至今天。</p>
       </section>
 
-      <section id="items-view" class="view hidden">
-        <div class="list-intro"><div><span class="eyebrow">物品档案 / 清单</span><p>在这里查看每件物品的来路、花费与去向。</p></div><span id="item-count" class="count-chip"></span></div>
+      <section id="items-view" class="view">
+        <div class="list-intro"><div><span class="eyebrow">01 / 物品档案</span><p>一件件记下，日子便有了形状。</p></div><span id="item-count" class="count-chip"></span></div>
         <div class="toolbar">
           <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="搜索名称或分类" aria-label="搜索名称或分类"></label>
           <select id="status-filter" aria-label="筛选状态"><option value="all">全部状态</option><option value="active">使用中</option><option value="idle">闲置</option><option value="disposed">已处置</option></select>
         </div>
-        <div class="list-columns" aria-hidden="true"><span>物品 / 分类</span><span>状态</span><span>持有天数</span><span>购买价/天</span><span>净成本/天</span></div>
         <div id="items-list" class="items-list"></div>
       </section>
 

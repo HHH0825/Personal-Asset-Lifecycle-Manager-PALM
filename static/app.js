@@ -1,6 +1,11 @@
 const $ = (selector) => document.querySelector(selector);
 const statusNames = { active: '使用中', idle: '闲置', disposed: '已处置' };
 const methodNames = { sold: '出售', gifted: '赠送', discarded: '丢弃', other: '其他' };
+const iconTypes = { digital: '数码', home: '家居', daily: '日常用品', clothing: '衣物', books: '书籍文具', mobility: '出行', sports: '运动', tools: '工具', other: '其他' };
+function iconMarkup(type) {
+  const key = Object.prototype.hasOwnProperty.call(iconTypes, type) ? type : 'other';
+  return `<svg class="type-icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#${key}"></use></svg>`;
+}
 const todayLocal = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -77,8 +82,9 @@ async function showApp(user) {
   $('#account-name').textContent = user.username;
   $('#auth-screen').classList.add('hidden');
   $('#app-shell').classList.remove('hidden');
-  showView('dashboard');
-  await refreshAll();
+  showView('items');
+  try { await refreshAll(); }
+  catch (error) { showToast(`部分数据加载失败：${error.message}`, true); }
 }
 async function submitAuth(event) {
   event.preventDefault();
@@ -124,7 +130,7 @@ function showView(name) {
   for (const view of document.querySelectorAll('.view')) view.classList.toggle('hidden', view.id !== `${name}-view`);
   for (const link of document.querySelectorAll('.nav-link')) link.classList.toggle('active', link.dataset.view === name);
   $('#page-title').textContent = ({ dashboard: '数据概览', items: '我的物品', review: '待复盘', detail: '物品详情' })[name];
-  $('#section-number').textContent = ({ dashboard: '01', items: '02', review: '03', detail: '02' })[name];
+  $('#section-number').textContent = ({ items: '01', dashboard: '02', review: '03', detail: '01' })[name];
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function badge(status) { return `<span class="badge ${escapeHtml(status)}">${statusNames[status]}</span>`; }
@@ -132,12 +138,18 @@ function empty(title, subtitle = '') { return `<div class="empty"><strong>${titl
 
 async function refreshAll() {
   const epoch = sessionEpoch;
-  const [items, stats, insights] = await Promise.all([api('/api/items'), api('/api/stats'), api('/api/insights')]);
+  const items = await api('/api/items');
   if (epoch !== sessionEpoch) return;
   allItems = items;
-  renderDashboard(stats, insights);
   renderItems();
+  renderRecentItems();
+  const [stats, insights] = await Promise.all([api('/api/stats'), api('/api/insights')]);
+  if (epoch !== sessionEpoch) return;
+  renderDashboard(stats, insights);
   renderReview(insights);
+}
+function renderRecentItems() {
+  $('#recent-items').innerHTML = allItems.length ? allItems.slice(0, 4).map((item) => `<div class="mini-item"><span class="mini-icon">${iconMarkup(item.icon_type)}</span><div class="mini-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${item.purchase_date}</small></div>${badge(item.status)}<span class="mini-price">${yuan(item.purchase_price)}</span></div>`).join('') : empty('还没有物品', '点击右上角“添加物品”开始记录。');
 }
 function renderDashboard(stats, insights) {
   const cards = [
@@ -150,7 +162,7 @@ function renderDashboard(stats, insights) {
   const max = Math.max(...stats.categories.map((item) => Number(item.amount)), 1);
   $('#category-chart').innerHTML = stats.categories.length ? stats.categories.map((item) => `<div class="bar-row"><span class="bar-label" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, Number(item.amount) / max * 100)}%"></div></div><span class="bar-amount">${yuan(item.amount)}</span></div>`).join('') : empty('暂无分类数据', '添加物品后，这里会显示金额分布。');
   $('#status-chart').innerHTML = Object.entries(statusNames).map(([key, label]) => `<div class="status-row"><span>${label}</span><div class="status-track"><div class="status-fill ${key}" style="width:${stats.total_items ? stats.status_counts[key] / stats.total_items * 100 : 0}%"></div></div><strong>${stats.status_counts[key]}</strong></div>`).join('');
-  $('#recent-items').innerHTML = allItems.length ? allItems.slice(0, 4).map((item, index) => `<div class="mini-item"><div class="mini-icon">${String(index + 1).padStart(2, '0')}</div><div class="mini-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${item.purchase_date}</small></div>${badge(item.status)}<span class="mini-price">${yuan(item.purchase_price)}</span></div>`).join('') : empty('还没有物品', '点击右上角“添加物品”开始记录。');
+  renderRecentItems();
   const maxMonthly = Math.max(1, ...insights.months.flatMap((month) => [Number(month.purchase), Number(month.maintenance), Number(month.proceeds)]));
   $('#monthly-chart').innerHTML = insights.months.map((month) => {
     const label = `${month.month}：购买 ${yuan(month.purchase)}，维修 ${yuan(month.maintenance)}，回收 ${yuan(month.proceeds)}`;
@@ -164,20 +176,22 @@ function renderItems() {
   const status = $('#status-filter').value;
   const filtered = allItems.filter((item) => (status === 'all' || item.status === status) && (`${item.name} ${item.category}`).toLocaleLowerCase().includes(keyword));
   $('#item-count').textContent = `${filtered.length} 件物品`;
-  $('#items-list').innerHTML = filtered.length ? filtered.map((item, index) => `
+  if (!allItems.length) {
+    $('#items-list').innerHTML = `<div class="items-empty"><span class="item-icon">${iconMarkup('other')}</span><span class="eyebrow">ARCHIVE / 001</span><h2>从第一件物品开始</h2><p>记下它的购入时间与价格，以后使用、维修和去向都能接着记录。</p><button type="button" class="primary-btn" data-action="add-item">＋ 添加第一件物品</button></div>`;
+    return;
+  }
+  $('#items-list').innerHTML = filtered.length ? filtered.map((item) => `
     <article class="item-card" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}">
-      <div class="item-icon">${String(index + 1).padStart(2, '0')}</div>
-      <div class="item-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · 购买于 ${item.purchase_date}<br>累计净成本 ${yuan(item.net_cost)}</small></div>
-      <div class="item-status">${badge(item.status)}</div>
-      <div class="item-days"><span>${item.status === 'disposed' ? '曾持有' : '已持有'}</span><strong>${item.holding_days} 天</strong></div>
-      <div class="item-daily purchase"><span>购买价/天</span><strong>${item.daily_purchase_cost === null ? '暂无' : yuan(item.daily_purchase_cost)}</strong></div>
-      <div class="item-daily net"><span>净成本/天</span><strong>${item.daily_net_cost === null ? '暂无' : yuan(item.daily_net_cost)}</strong></div>
+      <div class="item-card-head"><span class="item-icon">${iconMarkup(item.icon_type)}</span><div class="item-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other}</small></div><div class="item-status">${badge(item.status)}</div></div>
+      <div class="item-purchase">购于 ${item.purchase_date}</div>
+      <div class="item-card-metrics"><div><span>${item.status === 'disposed' ? '曾持有' : '已持有'}</span><strong>${item.holding_days} 天</strong></div><div><span>购买价/天</span><strong>${item.daily_purchase_cost === null ? '暂无' : yuan(item.daily_purchase_cost)}</strong></div><div><span>净成本/天</span><strong>${item.daily_net_cost === null ? '暂无' : yuan(item.daily_net_cost)}</strong></div></div>
+      <div class="item-card-foot"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong><span class="item-card-arrow" aria-hidden="true">↗</span></div>
     </article>`).join('') : empty('没有找到物品', '可以调整搜索词或状态筛选。');
 }
 function reviewRow(item, reason) {
   const description = reason === 'manual_idle' ? '已手动标记闲置' : reason === 'no_recent_record'
     ? `距最近一次记录的使用 ${item.days_since_last_recorded_use} 天` : '尚无使用记录，请按实际情况核对';
-  return `<article class="review-item" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}"><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${description}</small></div><div class="review-cost"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><span class="review-arrow" aria-hidden="true">↗</span></article>`;
+  return `<article class="review-item" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}"><span class="review-icon">${iconMarkup(item.icon_type)}</span><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${description}</small></div><div class="review-cost"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><span class="review-arrow" aria-hidden="true">↗</span></article>`;
 }
 function renderReview(insights) {
   $('#review-count').textContent = `${insights.review_items.length} 件待核对`;
@@ -214,7 +228,7 @@ function renderDetail() {
   const preview = item.status === 'disposed' ? '' : `<section class="detail-section preview-section"><h3>处置前试算</h3><label class="preview-label" for="preview-proceeds">预计回收金额（元）</label><input id="preview-proceeds" type="number" min="0" max="999999999" step="0.01" inputmode="decimal" placeholder="例如 200.00"><div id="preview-result" class="preview-result" aria-live="polite">输入预计回收金额，查看处置后的净成本。</div><p class="hint">仅供参考，试算不会保存数据或改变物品状态。</p></section>`;
   $('#detail-content').innerHTML = `
     <div class="detail-hero">
-      <div class="detail-top"><div class="item-icon">№</div><div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · 购买于 ${item.purchase_date}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div>
+      <div class="detail-top"><span class="item-icon">${iconMarkup(item.icon_type)}</span><div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · 购买于 ${item.purchase_date}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div>
       <div class="detail-metrics"><div><span>购买价格</span><strong>${yuan(item.purchase_price)}</strong></div><div><span>维修费用</span><strong>${yuan(item.maintenance_total)}</strong></div><div><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><div><span>${item.status === 'disposed' ? '曾持有' : '已持有'} · 使用记录 ${item.usage_count} 条</span><strong>${item.holding_days} 天</strong></div></div>
     </div>
     <div class="detail-grid"><div><section class="detail-section"><div class="section-heading"><h3>生命周期时间线</h3></div>${timeline(item)}</section></div>
@@ -247,22 +261,28 @@ function updateDisposalPreview() {
 }
 
 const field = (name, label, type = 'text', opts = {}) => `<label class="field ${opts.wide ? 'wide' : ''}"><span>${label}${opts.required ? ' *' : ''}</span>${type === 'textarea' ? `<textarea name="${name}" maxlength="${opts.max || 1000}" ${opts.required ? 'required' : ''}></textarea>` : type === 'select' ? `<select name="${name}">${opts.options.map(([value, text]) => `<option value="${value}">${text}</option>`).join('')}</select>` : `<input name="${name}" type="${type}" ${type === 'number' ? 'min="0" step="0.01"' : ''} ${type === 'date' ? `max="${todayLocal()}"` : ''} ${opts.max ? `maxlength="${opts.max}"` : ''} ${opts.required ? 'required' : ''}>`}</label>`;
+function iconChoices() {
+  return `<fieldset class="icon-choice-field"><legend>物品类型</legend><div class="icon-choice-grid">${Object.entries(iconTypes).map(([key, label]) => `<label class="icon-option"><input type="radio" name="icon_type" value="${key}" required><span class="icon-option-face">${iconMarkup(key)}<span>${label}</span></span></label>`).join('')}</div></fieldset>`;
+}
 function formMarkup(kind, editing) {
-  if (kind === 'item') return field('name', '物品名称', 'text', { required: true, wide: true, max: 120 }) + field('category', '分类', 'text', { required: true, max: 60 }) + field('purchase_date', '购买日期', 'date', { required: true }) + field('purchase_price', '购买价格（元）', 'number', { required: true }) + field('status', '当前状态', 'select', { options: editing?.status === 'disposed' ? [['disposed', '已处置']] : [['active', '使用中'], ['idle', '闲置']] }) + field('notes', '备注', 'textarea', { wide: true });
+  if (kind === 'item') return field('name', '物品名称', 'text', { required: true, wide: true, max: 120 }) + iconChoices() + field('category', '分类', 'text', { required: true, max: 60 }) + field('purchase_date', '购买日期', 'date', { required: true }) + field('purchase_price', '购买价格（元）', 'number', { required: true }) + field('status', '当前状态', 'select', { options: editing?.status === 'disposed' ? [['disposed', '已处置']] : [['active', '使用中'], ['idle', '闲置']] }) + field('notes', '备注', 'textarea', { wide: true });
   if (kind === 'usage') return field('used_on', '使用日期', 'date', { required: true }) + field('notes', '使用备注', 'textarea', { wide: true });
   if (kind === 'maintenance') return field('maintained_on', '维修日期', 'date', { required: true }) + field('cost', '维修费用（元）', 'number', { required: true }) + field('description', '维修说明', 'textarea', { required: true, wide: true, max: 500 });
   return field('disposed_on', '处置日期', 'date', { required: true }) + field('method', '处置方式', 'select', { options: Object.entries(methodNames) }) + field('proceeds', '回收金额（元）', 'number', { required: true }) + field('notes', '备注', 'textarea', { wide: true });
 }
 function openForm(kind, record = null) {
   formState = { kind, record };
+  clearTimeout(toastTimer);
+  $('#toast').classList.add('hidden');
   const titles = { item: '物品', usage: '使用记录', maintenance: '维修记录', disposal: '处置记录' };
   $('#dialog-title').textContent = `${record ? '编辑' : '添加'}${titles[kind]}`;
   $('#form-fields').innerHTML = formMarkup(kind, record);
   $('#form-error').classList.add('hidden');
   const form = $('#entity-form');
-  const defaults = record || (kind === 'item' ? { status: 'active' } : kind === 'disposal' ? { method: 'sold' } : {});
+  const defaults = record || (kind === 'item' ? { status: 'active', icon_type: 'other' } : kind === 'disposal' ? { method: 'sold' } : {});
   for (const input of form.querySelectorAll('[name]')) {
-    if (defaults[input.name] != null) input.value = defaults[input.name];
+    if (input.type === 'radio') input.checked = input.value === defaults[input.name];
+    else if (defaults[input.name] != null) input.value = defaults[input.name];
     else if (input.type === 'date') input.value = todayLocal();
   }
   $('#form-dialog').showModal();
@@ -270,6 +290,7 @@ function openForm(kind, record = null) {
 async function saveForm(event) {
   event.preventDefault();
   const { kind, record } = formState;
+  const epoch = sessionEpoch;
   const data = Object.fromEntries(new FormData($('#entity-form')).entries());
   let path, method;
   if (kind === 'item') { path = record ? `/api/items/${record.id}` : '/api/items'; method = record ? 'PUT' : 'POST'; }
@@ -277,17 +298,35 @@ async function saveForm(event) {
   else { path = record ? `/api/${kind}/${record.id}` : `/api/items/${currentItem.id}/${kind}`; method = record ? 'PUT' : 'POST'; }
   const submit = $('#entity-form [type="submit"]');
   submit.disabled = true;
+  let saved;
   try {
-    const saved = await api(path, { method, body: JSON.stringify(data) });
-    $('#form-dialog').close();
-    await refreshAll();
-    if (kind === 'item' && !record) await openItem(saved.id);
-    else if (currentItem) await openItem(currentItem.id);
-    showToast('保存成功');
+    saved = await api(path, { method, body: JSON.stringify(data) });
   } catch (error) {
     $('#form-error').textContent = error.message;
     $('#form-error').classList.remove('hidden');
-  } finally { submit.disabled = false; }
+    submit.disabled = false;
+    return;
+  }
+  submit.disabled = false;
+  if (epoch !== sessionEpoch) return;
+  $('#form-dialog').close();
+  if (kind === 'item') {
+    allItems = record ? allItems.map((item) => item.id === saved.id ? saved : item) : [saved, ...allItems];
+    currentItem = saved;
+    renderItems();
+    renderRecentItems();
+    renderDetail();
+    showView('detail');
+  }
+  try {
+    if (kind !== 'item' && currentItem) await openItem(currentItem.id);
+    await refreshAll();
+    if (epoch !== sessionEpoch) return;
+    showToast(kind === 'item' ? `保存成功 · 图标：${iconTypes[saved.icon_type] || iconTypes.other}` : '保存成功');
+  } catch (error) {
+    if (epoch !== sessionEpoch) return;
+    showToast(`记录已保存，但部分页面刷新失败：${error.message}`, true);
+  }
 }
 async function deleteRecord(type, id) {
   if (!confirm('确定删除这条记录吗？')) return;
@@ -304,7 +343,7 @@ function getRecord(type, id) {
 
 document.addEventListener('click', async (event) => {
   const nav = event.target.closest('[data-view]');
-  if (nav) { showView(nav.dataset.view); return; }
+  if (nav) { if (nav.tagName === 'A') event.preventDefault(); showView(nav.dataset.view); return; }
   const open = event.target.closest('[data-open-item]');
   if (open) { await run(() => openItem(Number(open.dataset.openItem))); return; }
   const edit = event.target.closest('[data-edit-record]');
@@ -312,6 +351,7 @@ document.addEventListener('click', async (event) => {
   const remove = event.target.closest('[data-delete-record]');
   if (remove) { const [type, rawId] = remove.dataset.deleteRecord.split(':'); await deleteRecord(type, Number(rawId)); return; }
   const action = event.target.closest('[data-action]')?.dataset.action;
+  if (action === 'add-item') openForm('item');
   if (action === 'edit-item') openForm('item', currentItem);
   if (action === 'add-usage') openForm('usage');
   if (action === 'add-maintenance') openForm('maintenance');
@@ -330,6 +370,10 @@ $('#back-btn').addEventListener('click', () => showView(detailReturnView));
 $('#search-input').addEventListener('input', renderItems);
 $('#status-filter').addEventListener('change', renderItems);
 $('#entity-form').addEventListener('submit', saveForm);
+$('#entity-form').addEventListener('click', (event) => {
+  const option = event.target.closest('.icon-option');
+  if (option) option.querySelector('input').checked = true;
+});
 $('#close-dialog').addEventListener('click', () => $('#form-dialog').close());
 $('#cancel-dialog').addEventListener('click', () => $('#form-dialog').close());
 $('#auth-form').addEventListener('submit', submitAuth);

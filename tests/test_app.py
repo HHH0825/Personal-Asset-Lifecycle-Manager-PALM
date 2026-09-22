@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from app import create_app
+from werkzeug.security import generate_password_hash
 
 
 def day(offset=0):
@@ -91,6 +92,22 @@ class PalmApiTest(unittest.TestCase):
         self.assertEqual(self.client.post(f"/api/items/{item_id}/disposal", json={"disposed_on": day(5), "method": "sold", "proceeds": "1", "notes": ""}).status_code, 201)
         self.assertEqual(self.client.post(f"/api/items/{item_id}/usage", json={"used_on": day(1), "notes": ""}).status_code, 400)
         self.assertEqual(self.client.put(f"/api/items/{item_id}", json={**edit, "status": "active"}).status_code, 400)
+
+    def test_icon_type_create_edit_and_validation(self):
+        item = self.make_item(name="自定义分类物品", category="我的分类")
+        self.assertEqual(item["icon_type"], "other")
+        edit = {"name": item["name"], "category": item["category"], "purchase_date": item["purchase_date"],
+                "purchase_price": item["purchase_price"], "status": item["status"], "notes": ""}
+        for icon_type in ("digital", "home", "daily", "clothing", "books", "mobility", "sports", "tools", "other"):
+            response = self.client.put(f"/api/items/{item['id']}", json={**edit, "icon_type": icon_type})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json["icon_type"], icon_type)
+            self.assertEqual(self.client.get("/api/items").json[0]["icon_type"], icon_type)
+        self.assertEqual(self.client.put(f"/api/items/{item['id']}", json={**edit, "icon_type": "books"}).status_code, 200)
+        self.assertEqual(self.client.put(f"/api/items/{item['id']}", json=edit).json["icon_type"], "books")
+        for invalid in ("unknown", "", None, 1):
+            self.assertEqual(self.client.put(f"/api/items/{item['id']}", json={**edit, "icon_type": invalid}).status_code, 400)
+            self.assertEqual(self.client.post("/api/items", json={**edit, "icon_type": invalid}).status_code, 400)
 
     def test_monthly_insights_and_all_time_totals(self):
         first_this_month = date.today().replace(day=1)
@@ -225,6 +242,7 @@ class PalmApiTest(unittest.TestCase):
                 connection.commit()
             migrated = create_app({"TESTING": True, "DATABASE": old_database, "SECRET_KEY": "test-key"})
             self.assertTrue(Path(old_database + ".pre-accounts.bak").exists())
+            self.assertTrue(Path(old_database + ".pre-icons.bak").exists())
             create_app({"TESTING": True, "DATABASE": old_database, "SECRET_KEY": "test-key"})
             first = migrated.test_client()
             second = migrated.test_client()
@@ -232,8 +250,42 @@ class PalmApiTest(unittest.TestCase):
             self.auth(second, "second", register=True)
             self.assertEqual(first.get("/api/items").json[0]["name"], "旧物品")
             self.assertEqual(first.get("/api/items/1").json["usage_records"][0]["notes"], "旧使用记录")
+            self.assertEqual(first.get("/api/items/1").json["icon_type"], "other")
             self.assertEqual(second.get("/api/items").json, [])
             self.assertEqual(second.get("/api/items/1").status_code, 404)
+
+    def test_icon_migration_keeps_existing_user_ownership(self):
+        with tempfile.TemporaryDirectory() as folder:
+            database = str(Path(folder) / "accounts.sqlite3")
+            with closing(sqlite3.connect(database)) as connection:
+                connection.executescript("""
+                    CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT NOT NULL,
+                        username_key TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at TEXT);
+                    CREATE TABLE items (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT NOT NULL,
+                        category TEXT NOT NULL, purchase_date TEXT NOT NULL, purchase_cents INTEGER NOT NULL,
+                        notes TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT);
+                """)
+                password_hash = generate_password_hash("a-strong-password-123")
+                for user_id, username in ((1, "first"), (2, "second")):
+                    connection.execute("INSERT INTO users VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                                       (user_id, username, username, password_hash))
+                for item_id, user_id, category in ((1, 1, "数码设备"), (2, 1, "日常用品"),
+                                                    (3, 1, "出行用品"), (4, 2, "自定义分类")):
+                    connection.execute("INSERT INTO items VALUES (?, ?, ?, ?, ?, 10000, '', 'active', CURRENT_TIMESTAMP)",
+                                       (item_id, user_id, f"旧物品{item_id}", category, day(5)))
+                connection.commit()
+            migrated = create_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
+            self.assertTrue(Path(database + ".pre-icons.bak").exists())
+            first, second = migrated.test_client(), migrated.test_client()
+            self.auth(first, "first")
+            self.auth(second, "second")
+            self.assertEqual({item["category"]: item["icon_type"] for item in first.get("/api/items").json},
+                             {"数码设备": "digital", "日常用品": "daily", "出行用品": "mobility"})
+            self.assertEqual([(item["category"], item["icon_type"]) for item in second.get("/api/items").json],
+                             [("自定义分类", "other")])
+            self.assertEqual(second.get("/api/items/1").status_code, 404)
+            create_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
+            self.assertEqual(first.get("/api/items/1").json["icon_type"], "digital")
 
 
 if __name__ == '__main__':

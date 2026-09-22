@@ -15,6 +15,9 @@ from flask import Flask, g, jsonify, render_template, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
+ICON_TYPES = frozenset(("digital", "home", "daily", "clothing", "books", "mobility", "sports", "tools", "other"))
+
+
 SCHEMA = """
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS users (
@@ -29,6 +32,7 @@ CREATE TABLE IF NOT EXISTS items (
     user_id INTEGER REFERENCES users(id),
     name TEXT NOT NULL,
     category TEXT NOT NULL,
+    icon_type TEXT NOT NULL DEFAULT 'other',
     purchase_date TEXT NOT NULL,
     purchase_cents INTEGER NOT NULL CHECK (purchase_cents >= 0),
     notes TEXT NOT NULL DEFAULT '',
@@ -107,8 +111,10 @@ def create_app(test_config=None):
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='items'"
                 ).fetchone()
                 old_columns = [r[1] for r in source.execute("PRAGMA table_info(items)")] if old_table else []
-                if old_table and "user_id" not in old_columns:
-                    backup_path = database_path.with_name(database_path.name + ".pre-accounts.bak")
+                for column, suffix in (("user_id", ".pre-accounts.bak"), ("icon_type", ".pre-icons.bak")):
+                    if not old_table or column in old_columns:
+                        continue
+                    backup_path = database_path.with_name(database_path.name + suffix)
                     if not backup_path.exists():
                         descriptor, temporary_name = tempfile.mkstemp(
                             prefix="palm-backup-", suffix=".tmp", dir=database_path.parent
@@ -125,11 +131,19 @@ def create_app(test_config=None):
                             Path(temporary_name).unlink(missing_ok=True)
                             raise
         db().executescript(SCHEMA)
-        if "user_id" not in [r[1] for r in db().execute("PRAGMA table_info(items)")]:
+        columns = [r[1] for r in db().execute("PRAGMA table_info(items)")]
+        if "user_id" not in columns:
             db().execute("BEGIN IMMEDIATE")
             db().execute("ALTER TABLE items ADD COLUMN user_id INTEGER REFERENCES users(id)")
+        if "icon_type" not in columns:
+            if not db().in_transaction:
+                db().execute("BEGIN IMMEDIATE")
+            db().execute("ALTER TABLE items ADD COLUMN icon_type TEXT NOT NULL DEFAULT 'other'")
+            db().execute("UPDATE items SET icon_type = CASE category "
+                         "WHEN '数码设备' THEN 'digital' WHEN '日常用品' THEN 'daily' "
+                         "WHEN '出行用品' THEN 'mobility' ELSE 'other' END")
         db().execute("CREATE INDEX IF NOT EXISTS idx_items_user ON items(user_id)")
-        db().execute("PRAGMA user_version = 2")
+        db().execute("PRAGMA user_version = 3")
         db().commit()
 
     @app.errorhandler(InputError)
@@ -272,6 +286,12 @@ def create_app(test_config=None):
         return str((Decimal(cents) / (Decimal(days) * 100)).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP))
 
+    def icon_type_value(data, default):
+        icon_type = data.get("icon_type", default)
+        if not isinstance(icon_type, str) or icon_type not in ICON_TYPES:
+            raise InputError("请选择有效的物品类型")
+        return icon_type
+
     def item_row(item_id):
         row = db().execute("SELECT * FROM items WHERE id = ? AND user_id = ?", (item_id, g.user_id)).fetchone()
         if not row:
@@ -302,7 +322,7 @@ def create_app(test_config=None):
         holding_days = (end - date.fromisoformat(row["purchase_date"])).days
         net_cents = row["purchase_cents"] + maintenance_cents - (disposal["proceeds_cents"] if disposal else 0)
         result = {
-            "id": item_id, "name": row["name"], "category": row["category"],
+            "id": item_id, "name": row["name"], "category": row["category"], "icon_type": row["icon_type"],
             "purchase_date": row["purchase_date"], "purchase_price": money(row["purchase_cents"]),
             "notes": row["notes"], "status": row["status"],
             "maintenance_total": money(maintenance_cents), "usage_count": usage_summary["count"],
@@ -359,6 +379,7 @@ def create_app(test_config=None):
         data = body()
         name = value(data, "name", "物品名称")
         category = value(data, "category", "分类", 60)
+        icon_type = icon_type_value(data, "other")
         purchased = date_value(data, "purchase_date", "购买日期")
         price = cents_value(data, "purchase_price", "购买价格")
         notes = value(data, "notes", "备注", 1000, False)
@@ -366,8 +387,8 @@ def create_app(test_config=None):
         if status not in ("active", "idle"):
             raise InputError("新物品状态只能是使用中或闲置")
         cur = db().execute(
-            "INSERT INTO items (user_id, name, category, purchase_date, purchase_cents, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (g.user_id, name, category, purchased, price, notes, status)
+            "INSERT INTO items (user_id, name, category, icon_type, purchase_date, purchase_cents, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (g.user_id, name, category, icon_type, purchased, price, notes, status)
         )
         db().commit()
         return jsonify(item_payload(item_row(cur.lastrowid), True)), 201
@@ -384,6 +405,7 @@ def create_app(test_config=None):
         data = body()
         name = value(data, "name", "物品名称")
         category = value(data, "category", "分类", 60)
+        icon_type = icon_type_value(data, row["icon_type"])
         purchased = date_value(data, "purchase_date", "购买日期")
         ensure_purchase_date(item_id, purchased)
         price = cents_value(data, "purchase_price", "购买价格")
@@ -393,8 +415,8 @@ def create_app(test_config=None):
         if status not in allowed:
             raise InputError("已处置状态由处置记录决定；其他物品可设为使用中或闲置")
         db().execute(
-            "UPDATE items SET name=?, category=?, purchase_date=?, purchase_cents=?, notes=?, status=? WHERE id=?",
-            (name, category, purchased, price, notes, status, item_id)
+            "UPDATE items SET name=?, category=?, icon_type=?, purchase_date=?, purchase_cents=?, notes=?, status=? WHERE id=?",
+            (name, category, icon_type, purchased, price, notes, status, item_id)
         )
         db().commit()
         return jsonify(item_payload(item_row(item_id), True))
