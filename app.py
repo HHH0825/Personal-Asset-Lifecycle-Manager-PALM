@@ -2,16 +2,31 @@
 
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from contextlib import closing
 from pathlib import Path
+import hmac
+import os
+import re
+import secrets
 import sqlite3
+import tempfile
 
-from flask import Flask, g, jsonify, render_template, request
+from flask import Flask, g, jsonify, render_template, request, session
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    username_key TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id),
     name TEXT NOT NULL,
     category TEXT NOT NULL,
     purchase_date TEXT NOT NULL,
@@ -53,10 +68,23 @@ class InputError(Exception):
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
-    app.config.from_mapping(DATABASE=str(Path(app.instance_path) / "palm.sqlite3"))
+    app.config.from_mapping(
+        DATABASE=str(Path(app.instance_path) / "palm.sqlite3"),
+        SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+    )
     if test_config:
         app.config.update(test_config)
     Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
+    if not app.config.get("SECRET_KEY"):
+        key_path = Path(app.instance_path) / "session.key"
+        key_path.parent.mkdir(parents=True, exist_ok=True)
+        if not key_path.exists():
+            try:
+                with key_path.open("x", encoding="ascii") as key_file:
+                    key_file.write(secrets.token_hex(32))
+            except FileExistsError:
+                pass
+        app.config["SECRET_KEY"] = os.environ.get("PALM_SECRET_KEY") or key_path.read_text(encoding="ascii")
 
     def db():
         if "db" not in g:
@@ -72,7 +100,36 @@ def create_app(test_config=None):
             connection.close()
 
     with app.app_context():
+        database_path = Path(app.config["DATABASE"])
+        if database_path.exists():
+            with closing(sqlite3.connect(database_path)) as source:
+                old_table = source.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='items'"
+                ).fetchone()
+                old_columns = [r[1] for r in source.execute("PRAGMA table_info(items)")] if old_table else []
+                if old_table and "user_id" not in old_columns:
+                    backup_path = database_path.with_name(database_path.name + ".pre-accounts.bak")
+                    if not backup_path.exists():
+                        descriptor, temporary_name = tempfile.mkstemp(
+                            prefix="palm-backup-", suffix=".tmp", dir=database_path.parent
+                        )
+                        os.close(descriptor)
+                        try:
+                            with closing(sqlite3.connect(temporary_name)) as target:
+                                source.backup(target)
+                            if not backup_path.exists():
+                                os.replace(temporary_name, backup_path)
+                            else:
+                                Path(temporary_name).unlink()
+                        except Exception:
+                            Path(temporary_name).unlink(missing_ok=True)
+                            raise
         db().executescript(SCHEMA)
+        if "user_id" not in [r[1] for r in db().execute("PRAGMA table_info(items)")]:
+            db().execute("BEGIN IMMEDIATE")
+            db().execute("ALTER TABLE items ADD COLUMN user_id INTEGER REFERENCES users(id)")
+        db().execute("CREATE INDEX IF NOT EXISTS idx_items_user ON items(user_id)")
+        db().execute("PRAGMA user_version = 2")
         db().commit()
 
     @app.errorhandler(InputError)
@@ -82,6 +139,90 @@ def create_app(test_config=None):
     @app.errorhandler(404)
     def not_found(_error):
         return jsonify(error="记录不存在"), 404
+
+    @app.after_request
+    def avoid_cached_account_data(response):
+        if request.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.before_request
+    def protect_api():
+        if not request.path.startswith("/api/"):
+            return None
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            expected = session.get("csrf_token", "")
+            supplied = request.headers.get("X-CSRF-Token", "")
+            if not expected or not hmac.compare_digest(expected, supplied):
+                return jsonify(error="页面验证已失效，请刷新后重试"), 403
+        if request.path.startswith("/api/auth/"):
+            return None
+        user_id = session.get("user_id")
+        user = db().execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone() if user_id else None
+        if not user:
+            return jsonify(error="请先登录"), 401
+        g.user_id = user["id"]
+
+    def csrf_token():
+        if "csrf_token" not in session:
+            session["csrf_token"] = secrets.token_urlsafe(32)
+        return session["csrf_token"]
+
+    def public_user(row):
+        return {"id": row["id"], "username": row["username"]}
+
+    @app.get("/api/auth/me")
+    def auth_me():
+        user_id = session.get("user_id")
+        user = db().execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone() if user_id else None
+        if user_id and not user:
+            session.clear()
+        return jsonify(user=public_user(user) if user else None, csrf_token=csrf_token())
+
+    @app.post("/api/auth/register")
+    def auth_register():
+        data = body()
+        username = data.get("username")
+        password = data.get("password")
+        if not isinstance(username, str) or not re.fullmatch(r"[\w]{3,32}", username.strip()):
+            raise InputError("用户名应为 3 至 32 个字母、数字、汉字或下划线")
+        username = username.strip()
+        if not isinstance(password, str) or not 8 <= len(password) <= 128:
+            raise InputError("密码长度应为 8 至 128 个字符")
+        password_hash = generate_password_hash(password)
+        try:
+            db().execute("BEGIN IMMEDIATE")
+            first_user = db().execute("SELECT NOT EXISTS (SELECT 1 FROM users)").fetchone()[0]
+            cursor = db().execute(
+                "INSERT INTO users (username, username_key, password_hash) VALUES (?, ?, ?)",
+                (username, username.casefold(), password_hash),
+            )
+            if first_user:
+                db().execute("UPDATE items SET user_id = ? WHERE user_id IS NULL", (cursor.lastrowid,))
+            db().commit()
+        except sqlite3.IntegrityError as exc:
+            db().rollback()
+            raise InputError("用户名已被使用") from exc
+        session.clear()
+        session["user_id"] = cursor.lastrowid
+        user = db().execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        return jsonify(user=public_user(user), csrf_token=csrf_token()), 201
+
+    @app.post("/api/auth/login")
+    def auth_login():
+        data = body()
+        username, password = data.get("username"), data.get("password")
+        user = db().execute("SELECT * FROM users WHERE username_key = ?", (username.strip().casefold(),)).fetchone() if isinstance(username, str) else None
+        if not user or not isinstance(password, str) or not check_password_hash(user["password_hash"], password):
+            return jsonify(error="用户名或密码不正确"), 401
+        session.clear()
+        session["user_id"] = user["id"]
+        return jsonify(user=public_user(user), csrf_token=csrf_token())
+
+    @app.post("/api/auth/logout")
+    def auth_logout():
+        session.clear()
+        return "", 204
 
     def body():
         data = request.get_json(silent=True)
@@ -132,14 +273,17 @@ def create_app(test_config=None):
             Decimal("0.01"), rounding=ROUND_HALF_UP))
 
     def item_row(item_id):
-        row = db().execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
+        row = db().execute("SELECT * FROM items WHERE id = ? AND user_id = ?", (item_id, g.user_id)).fetchone()
         if not row:
             from flask import abort
             abort(404)
         return row
 
     def record_row(table, record_id):
-        row = db().execute(f"SELECT * FROM {table} WHERE id = ?", (record_id,)).fetchone()
+        row = db().execute(
+            f"SELECT record.* FROM {table} AS record JOIN items AS item ON item.id = record.item_id "
+            "WHERE record.id = ? AND item.user_id = ?", (record_id, g.user_id)
+        ).fetchone()
         if not row:
             from flask import abort
             abort(404)
@@ -207,8 +351,9 @@ def create_app(test_config=None):
         if request.method == "GET":
             query = request.args.get("q", "").strip()[:120]
             rows = db().execute(
-                "SELECT * FROM items WHERE name LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\' ORDER BY id DESC",
-                tuple("%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%" for _ in range(2))
+                "SELECT * FROM items WHERE user_id = ? AND (name LIKE ? ESCAPE '\\' "
+                "OR category LIKE ? ESCAPE '\\') ORDER BY id DESC",
+                (g.user_id, *("%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%" for _ in range(2)))
             ).fetchall()
             return jsonify([item_payload(row) for row in rows])
         data = body()
@@ -221,8 +366,8 @@ def create_app(test_config=None):
         if status not in ("active", "idle"):
             raise InputError("新物品状态只能是使用中或闲置")
         cur = db().execute(
-            "INSERT INTO items (name, category, purchase_date, purchase_cents, notes, status) VALUES (?, ?, ?, ?, ?, ?)",
-            (name, category, purchased, price, notes, status)
+            "INSERT INTO items (user_id, name, category, purchase_date, purchase_cents, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (g.user_id, name, category, purchased, price, notes, status)
         )
         db().commit()
         return jsonify(item_payload(item_row(cur.lastrowid), True)), 201
@@ -353,7 +498,7 @@ def create_app(test_config=None):
 
     @app.get("/api/stats")
     def stats():
-        rows = db().execute("SELECT * FROM items").fetchall()
+        rows = db().execute("SELECT * FROM items WHERE user_id = ?", (g.user_id,)).fetchall()
         payloads = [item_payload(row) for row in rows]
         category = {}
         for row in rows:
@@ -382,10 +527,13 @@ def create_app(test_config=None):
             ("maintenance_records", "maintained_on", "cost_cents", "maintenance"),
             ("disposal_records", "disposed_on", "proceeds_cents", "proceeds"),
         ):
+            source = "items AS event" if table == "items" else f"{table} AS event JOIN items AS owner ON owner.id = event.item_id"
+            owner_column = "event.user_id" if table == "items" else "owner.user_id"
             rows = db().execute(
-                f"SELECT substr({date_column}, 1, 7) AS month, SUM({amount_column}) AS total "
-                f"FROM {table} WHERE {date_column} >= ? GROUP BY substr({date_column}, 1, 7)",
-                (months[0] + "-01",),
+                f"SELECT substr(event.{date_column}, 1, 7) AS month, SUM(event.{amount_column}) AS total "
+                f"FROM {source} WHERE {owner_column} = ? AND event.{date_column} >= ? "
+                f"GROUP BY substr(event.{date_column}, 1, 7)",
+                (g.user_id, months[0] + "-01"),
             )
             for row in rows:
                 if row["month"] in monthly:
@@ -393,7 +541,7 @@ def create_app(test_config=None):
 
         review = []
         unrecorded = []
-        for row in db().execute("SELECT * FROM items WHERE status != 'disposed' ORDER BY id DESC"):
+        for row in db().execute("SELECT * FROM items WHERE user_id = ? AND status != 'disposed' ORDER BY id DESC", (g.user_id,)):
             item = item_payload(row)
             last_used = item["last_recorded_use"]
             days_since = (today - date.fromisoformat(last_used)).days if last_used else None

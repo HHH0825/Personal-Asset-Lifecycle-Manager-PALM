@@ -1,5 +1,7 @@
 import tempfile
 import unittest
+import sqlite3
+from contextlib import closing
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -16,6 +18,17 @@ class PalmApiTest(unittest.TestCase):
         self.database = str(Path(self.temp.name) / "test.sqlite3")
         self.app = create_app({"TESTING": True, "DATABASE": self.database})
         self.client = self.app.test_client()
+        self.auth(self.client, "owner", register=True)
+
+    def auth(self, client, username, register=False):
+        token = client.get("/api/auth/me").json["csrf_token"]
+        client.environ_base["HTTP_X_CSRF_TOKEN"] = token
+        response = client.post("/api/auth/register" if register else "/api/auth/login", json={
+            "username": username, "password": "a-strong-password-123",
+        })
+        self.assertEqual(response.status_code, 201 if register else 200, response.json)
+        client.environ_base["HTTP_X_CSRF_TOKEN"] = response.json["csrf_token"]
+        return response.json["user"]
 
     def tearDown(self):
         self.temp.cleanup()
@@ -53,6 +66,8 @@ class PalmApiTest(unittest.TestCase):
         self.assertEqual(self.client.get('/api/items?q=笔记').json[0]["id"], item_id)
         self.assertEqual(self.client.get('/api/stats').json["net_cost_total"], "700.00")
         restarted = create_app({"TESTING": True, "DATABASE": self.database}).test_client()
+        self.assertEqual(self.app.secret_key, restarted.application.secret_key)
+        self.auth(restarted, "owner")
         self.assertEqual(restarted.get(f"/api/items/{item_id}").json["net_cost"], "700.00")
         self.assertEqual(self.client.delete(f"/api/disposal/{disposal.json['id']}").status_code, 204)
         self.assertEqual(self.client.get(f"/api/items/{item_id}").json["status"], "idle")
@@ -134,6 +149,91 @@ class PalmApiTest(unittest.TestCase):
         self.assertEqual(disposed_detail["daily_net_cost"], "-1.82")
         self.assertEqual(disposed_detail["daily_purchase_cost"], "9.09")
         self.assertEqual(disposed_detail["last_recorded_use"], day(100))
+
+    def test_authentication_and_user_isolation(self):
+        owner_item = self.make_item(name="甲的物品")
+        owner_id = owner_item["id"]
+        repair = self.client.post(f"/api/items/{owner_id}/maintenance", json={
+            "maintained_on": day(1), "cost": "20", "description": "维修",
+        }).json["id"]
+        usage = self.client.post(f"/api/items/{owner_id}/usage", json={
+            "used_on": day(20), "notes": "使用",
+        }).json["id"]
+        disposed_item = self.make_item(name="甲处置的物品")
+        disposal = self.client.post(f"/api/items/{disposed_item['id']}/disposal", json={
+            "disposed_on": day(1), "method": "sold", "proceeds": "10", "notes": "",
+        }).json["id"]
+
+        stranger = self.app.test_client()
+        self.assertEqual(stranger.get("/api/items").status_code, 401)
+        self.assertEqual(stranger.get("/api/stats").status_code, 401)
+        self.assertEqual(stranger.get("/api/insights").status_code, 401)
+        self.assertEqual(stranger.post("/api/auth/register", json={"username": "x", "password": "123"}).status_code, 403)
+        self.auth(stranger, "second", register=True)
+        self.assertEqual(stranger.get("/api/items").json, [])
+        self.assertEqual(stranger.get("/api/stats").json["total_items"], 0)
+        self.assertEqual(stranger.get("/api/insights").json["review_items"], [])
+        for path in (f"/api/items/{owner_id}", f"/api/items/{owner_id}/usage",
+                     f"/api/items/{owner_id}/maintenance", f"/api/items/{disposed_item['id']}/disposal"):
+            self.assertEqual(stranger.get(path).status_code, 404, path)
+        self.assertEqual(stranger.put(f"/api/items/{owner_id}", json={}).status_code, 404)
+        self.assertEqual(stranger.delete(f"/api/items/{owner_id}").status_code, 404)
+        self.assertEqual(stranger.post(f"/api/items/{owner_id}/usage", json={}).status_code, 404)
+        for path in (f"/api/maintenance/{repair}", f"/api/usage/{usage}", f"/api/disposal/{disposal}"):
+            self.assertEqual(stranger.put(path, json={}).status_code, 404, path)
+            self.assertEqual(stranger.delete(path).status_code, 404, path)
+        own = stranger.post("/api/items", json={"name": "乙的物品", "category": "数码", "purchase_date": day(2),
+                                                   "purchase_price": "15.00", "status": "active", "notes": ""})
+        self.assertEqual(own.status_code, 201)
+        self.assertEqual(stranger.get("/api/stats").json["purchase_total"], "15.00")
+        self.assertEqual(self.client.get("/api/stats").json["purchase_total"], "2000.00")
+        self.assertEqual(sum(float(month["purchase"]) for month in stranger.get("/api/insights").json["months"]), 15)
+        self.assertEqual(len(self.client.get("/api/items").json), 2)
+        self.assertEqual(stranger.get("/api/items?q=甲").json, [])
+        self.assertEqual(stranger.get("/api/insights").json["unknown_usage_items"][0]["id"], own.json["id"])
+        self.assertEqual(stranger.post("/api/auth/logout").status_code, 204)
+        self.assertEqual(stranger.get("/api/items").status_code, 401)
+        self.auth(stranger, "owner")
+        self.assertEqual(len(stranger.get("/api/items").json), 2)
+        self.assertEqual(stranger.get(f"/api/items/{own.json['id']}").status_code, 404)
+
+    def test_registration_validation_and_csrf(self):
+        other = self.app.test_client()
+        token = other.get("/api/auth/me").json["csrf_token"]
+        other.environ_base["HTTP_X_CSRF_TOKEN"] = token
+        self.assertEqual(other.post("/api/auth/register", json={"username": "OWNER", "password": "a-strong-password-123"}).status_code, 400)
+        self.assertEqual(other.post("/api/auth/register", json={"username": "x", "password": "a-strong-password-123"}).status_code, 400)
+        self.assertEqual(other.post("/api/auth/register", json={"username": "other", "password": "123"}).status_code, 400)
+        self.assertEqual(other.post("/api/auth/login", json={"username": "owner", "password": "wrong-password"}).status_code, 401)
+        self.assertEqual(other.get("/api/auth/me").json["user"], None)
+        self.assertEqual(other.get("/api/auth/me").headers["Cache-Control"], "no-store")
+        other.environ_base["HTTP_X_CSRF_TOKEN"] = "invalid"
+        self.assertEqual(other.post("/api/auth/login", json={"username": "owner", "password": "a-strong-password-123"}).status_code, 403)
+        self.client.environ_base["HTTP_X_CSRF_TOKEN"] = "invalid"
+        self.assertEqual(self.client.post("/api/items", json={}).status_code, 403)
+        self.assertEqual(self.client.delete("/api/items/1").status_code, 403)
+
+    def test_existing_database_migrates_to_first_account(self):
+        with tempfile.TemporaryDirectory() as folder:
+            old_database = str(Path(folder) / "old.sqlite3")
+            with closing(sqlite3.connect(old_database)) as connection:
+                connection.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, category TEXT, "
+                                   "purchase_date TEXT, purchase_cents INTEGER, notes TEXT, status TEXT, created_at TEXT)")
+                connection.execute("CREATE TABLE usage_records (id INTEGER PRIMARY KEY, item_id INTEGER, used_on TEXT, notes TEXT)")
+                connection.execute("INSERT INTO items VALUES (1, '旧物品', '数码', ?, 10000, '', 'active', CURRENT_TIMESTAMP)", (day(5),))
+                connection.execute("INSERT INTO usage_records VALUES (1, 1, ?, '旧使用记录')", (day(2),))
+                connection.commit()
+            migrated = create_app({"TESTING": True, "DATABASE": old_database, "SECRET_KEY": "test-key"})
+            self.assertTrue(Path(old_database + ".pre-accounts.bak").exists())
+            create_app({"TESTING": True, "DATABASE": old_database, "SECRET_KEY": "test-key"})
+            first = migrated.test_client()
+            second = migrated.test_client()
+            self.auth(first, "first", register=True)
+            self.auth(second, "second", register=True)
+            self.assertEqual(first.get("/api/items").json[0]["name"], "旧物品")
+            self.assertEqual(first.get("/api/items/1").json["usage_records"][0]["notes"], "旧使用记录")
+            self.assertEqual(second.get("/api/items").json, [])
+            self.assertEqual(second.get("/api/items/1").status_code, 404)
 
 
 if __name__ == '__main__':

@@ -8,7 +8,14 @@
   <script src="/static/app.js" defer></script>
 </head>
 <body>
-  <div class="app-shell">
+  <section id="auth-screen" class="auth-screen hidden" aria-labelledby="auth-title">
+    <div class="auth-intro"><a class="brand" href="/" aria-label="PALM 首页"><span class="brand-mark" aria-hidden="true">p.</span><span class="brand-name">PALM<small>个人物品档案</small></span></a><div><span class="eyebrow">PERSONAL ARCHIVE / 个人物品档案</span><h1>给日常物品，<br>留一份自己的记录。</h1><p>从购买、使用到处置，回看每件物品的时间与花费。</p></div><span class="auth-number">01 / 物有所记</span></div>
+    <div class="auth-panel"><div class="auth-panel-inner"><span class="eyebrow">欢迎来到 PALM</span><h2 id="auth-title">登录档案</h2><p id="auth-subtitle">输入用户名和密码，继续查看你的物品。</p>
+      <form id="auth-form"><label class="auth-field"><span>用户名</span><input name="username" autocomplete="username" minlength="3" maxlength="32" required></label><label class="auth-field"><span>密码</span><input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><label id="confirm-field" class="auth-field hidden"><span>确认密码</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="8" maxlength="128"></label><p id="auth-error" class="form-error hidden" role="alert"></p><button id="auth-submit" type="submit" class="primary-btn auth-submit">登录</button></form>
+      <div class="auth-switch"><span id="auth-switch-text">还没有账号？</span><button id="auth-toggle" type="button" class="text-btn">注册新账号 ↗</button></div>
+    </div></div>
+  </section>
+  <div id="app-shell" class="app-shell hidden">
     <aside class="sidebar">
       <a class="brand" href="#dashboard" aria-label="PALM 首页">
         <span class="brand-mark" aria-hidden="true">p.</span>
@@ -26,7 +33,7 @@
     <main class="main-content">
       <header class="topbar">
         <div><span class="eyebrow">个人资产档案 / <span id="section-number">01</span></span><h1 id="page-title">数据概览</h1></div>
-        <button class="primary-btn" id="add-item-btn"><span aria-hidden="true">＋</span> 添加物品</button>
+        <div class="topbar-actions"><div class="account-controls"><span id="account-name"></span><button id="logout-btn" type="button" class="text-btn">退出登录</button></div><button class="primary-btn" id="add-item-btn"><span aria-hidden="true">＋</span> 添加物品</button></div>
       </header>
 
       <section id="dashboard-view" class="view">

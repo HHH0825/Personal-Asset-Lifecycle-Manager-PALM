@@ -10,6 +10,9 @@ let currentItem = null;
 let detailReturnView = 'items';
 let formState = null;
 let toastTimer;
+let csrfToken = null;
+let authMode = 'login';
+let sessionEpoch = 0;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -27,13 +30,91 @@ function showToast(message, error = false) {
   toastTimer = setTimeout(() => el.classList.add('hidden'), 3200);
 }
 async function api(path, options = {}) {
-  const response = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (options.method && !['GET', 'HEAD'].includes(options.method.toUpperCase())) headers['X-CSRF-Token'] = csrfToken || '';
+  const response = await fetch(path, { ...options, credentials: 'same-origin', headers });
   if (!response.ok) {
     let message = `请求失败（${response.status}）`;
     try { message = (await response.json()).error || message; } catch (_) { /* response has no JSON */ }
+    if (response.status === 401 && !path.startsWith('/api/auth/')) {
+      showAuth();
+      csrfToken = (await api('/api/auth/me')).csrf_token;
+    }
     throw new Error(message);
   }
   return response.status === 204 ? null : response.json();
+}
+function setAuthMode(mode) {
+  authMode = mode;
+  const register = mode === 'register';
+  $('#auth-title').textContent = register ? '建立档案' : '登录档案';
+  $('#auth-subtitle').textContent = register ? '创建账号后，就能开始记录自己的物品。' : '输入用户名和密码，继续查看你的物品。';
+  $('#confirm-field').classList.toggle('hidden', !register);
+  $('#confirm-field input').required = register;
+  $('#auth-form [name="password"]').autocomplete = register ? 'new-password' : 'current-password';
+  $('#auth-submit').textContent = register ? '注册并进入' : '登录';
+  $('#auth-switch-text').textContent = register ? '已有账号？' : '还没有账号？';
+  $('#auth-toggle').textContent = register ? '返回登录 ↗' : '注册新账号 ↗';
+  $('#auth-error').classList.add('hidden');
+  $('#auth-form').reset();
+}
+function showAuth() {
+  sessionEpoch++;
+  if ($('#form-dialog').open) $('#form-dialog').close();
+  allItems = [];
+  currentItem = null;
+  formState = null;
+  $('#search-input').value = '';
+  $('#status-filter').value = 'all';
+  for (const selector of ['#items-list', '#detail-content', '#recent-items', '#stats-grid', '#category-chart', '#status-chart', '#monthly-chart', '#review-items', '#unknown-items']) $(selector).replaceChildren();
+  $('#account-name').textContent = '';
+  $('#app-shell').classList.add('hidden');
+  $('#auth-screen').classList.remove('hidden');
+  setAuthMode('login');
+}
+async function showApp(user) {
+  sessionEpoch++;
+  $('#account-name').textContent = user.username;
+  $('#auth-screen').classList.add('hidden');
+  $('#app-shell').classList.remove('hidden');
+  showView('dashboard');
+  await refreshAll();
+}
+async function submitAuth(event) {
+  event.preventDefault();
+  const form = $('#auth-form');
+  const data = Object.fromEntries(new FormData(form).entries());
+  const error = $('#auth-error');
+  error.classList.add('hidden');
+  if (authMode === 'register' && data.password !== data.confirm_password) {
+    error.textContent = '两次输入的密码不一致';
+    error.classList.remove('hidden');
+    return;
+  }
+  const submit = $('#auth-submit');
+  submit.disabled = true;
+  try {
+    const result = await api(`/api/auth/${authMode === 'register' ? 'register' : 'login'}`, {
+      method: 'POST', body: JSON.stringify({ username: data.username.trim(), password: data.password }),
+    });
+    csrfToken = result.csrf_token;
+    form.reset();
+    await showApp(result.user);
+  } catch (problem) {
+    error.textContent = problem.message;
+    error.classList.remove('hidden');
+  } finally { submit.disabled = false; }
+}
+async function bootstrap() {
+  try {
+    const state = await api('/api/auth/me');
+    csrfToken = state.csrf_token;
+    if (state.user) await showApp(state.user);
+    else showAuth();
+  } catch (error) {
+    showAuth();
+    showToast(error.message, true);
+  }
 }
 async function run(action, successMessage) {
   try { await action(); if (successMessage) showToast(successMessage); }
@@ -50,7 +131,9 @@ function badge(status) { return `<span class="badge ${escapeHtml(status)}">${sta
 function empty(title, subtitle = '') { return `<div class="empty"><strong>${title}</strong>${subtitle}</div>`; }
 
 async function refreshAll() {
+  const epoch = sessionEpoch;
   const [items, stats, insights] = await Promise.all([api('/api/items'), api('/api/stats'), api('/api/insights')]);
+  if (epoch !== sessionEpoch) return;
   allItems = items;
   renderDashboard(stats, insights);
   renderItems();
@@ -106,9 +189,12 @@ function renderReview(insights) {
     : empty('没有记录缺口', '使用中的物品都已有至少一条使用记录。');
 }
 async function openItem(id) {
+  const epoch = sessionEpoch;
   if (!$('#review-view').classList.contains('hidden')) detailReturnView = 'review';
   else if (!$('#items-view').classList.contains('hidden')) detailReturnView = 'items';
-  currentItem = await api(`/api/items/${id}`);
+  const item = await api(`/api/items/${id}`);
+  if (epoch !== sessionEpoch) return;
+  currentItem = item;
   renderDetail();
   $('#back-btn').textContent = detailReturnView === 'review' ? '← 返回待复盘' : '← 返回物品清单';
   showView('detail');
@@ -246,4 +332,11 @@ $('#status-filter').addEventListener('change', renderItems);
 $('#entity-form').addEventListener('submit', saveForm);
 $('#close-dialog').addEventListener('click', () => $('#form-dialog').close());
 $('#cancel-dialog').addEventListener('click', () => $('#form-dialog').close());
-run(refreshAll);
+$('#auth-form').addEventListener('submit', submitAuth);
+$('#auth-toggle').addEventListener('click', () => setAuthMode(authMode === 'login' ? 'register' : 'login'));
+$('#logout-btn').addEventListener('click', () => run(async () => {
+  await api('/api/auth/logout', { method: 'POST' });
+  showAuth();
+  csrfToken = (await api('/api/auth/me')).csrf_token;
+}));
+bootstrap();

@@ -1,6 +1,7 @@
 """Add a small demonstration dataset to an empty PALM database."""
 
 from datetime import date, timedelta
+from getpass import getpass
 
 from app import app
 
@@ -10,8 +11,15 @@ def day(days_ago):
 
 
 with app.test_client() as client:
+    username = input("导入到哪个已注册用户名：").strip()
+    password = getpass("该账号密码：")
+    client.environ_base["HTTP_X_CSRF_TOKEN"] = client.get("/api/auth/me").json["csrf_token"]
+    login = client.post("/api/auth/login", json={"username": username, "password": password})
+    if login.status_code != 200:
+        raise SystemExit("登录失败，未导入演示数据。请先在网页注册账号。")
+    client.environ_base["HTTP_X_CSRF_TOKEN"] = login.json["csrf_token"]
     if client.get("/api/items").json:
-        raise SystemExit("数据库已有物品，未导入演示数据。请在空数据库中运行。")
+        raise SystemExit("该账号已有物品，未导入演示数据。请使用空档案账号。")
 
     def add_item(name, category, days_ago, price, status="active", notes=""):
         response = client.post("/api/items", json={
@@ -42,4 +50,4 @@ with app.test_client() as client:
     client.post(f"/api/items/{keyboard}/usage", json={"used_on": day(120), "notes": "完成一次长篇写作"})
     add_item("备用充电宝", "数码设备", 100, "129.00", notes="尚未填写使用记录")
 
-print("已导入 6 件演示物品，覆盖费用分析、闲置复盘、记录缺口与处置试算。")
+print(f"已向 {username} 导入 6 件演示物品，覆盖费用分析、闲置复盘、记录缺口与处置试算。")

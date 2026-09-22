@@ -53,6 +53,27 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .text-btn:hover { color: #a05c3c; border-color: #a05c3c; }
 .view.hidden, .hidden { display: none !important; }
 
+.auth-screen { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(370px, .9fr); }
+.auth-intro { display: flex; flex-direction: column; justify-content: space-between; padding: clamp(35px, 5vw, 75px); background: #e9eae0; }
+.auth-intro h1 { margin: 22px 0; font: 500 clamp(38px, 4.5vw, 68px)/1.35 "Songti SC", SimSun, serif; letter-spacing: .04em; }
+.auth-intro p { color: #69796a; line-height: 2; font-size: 13px; }
+.auth-number { color: #9a634a; font: 13px Georgia, "Microsoft YaHei", sans-serif; letter-spacing: .1em; }
+.auth-panel { display: grid; place-items: center; padding: 45px; }
+.auth-panel-inner { width: min(100%, 390px); }
+.auth-panel h2 { margin: 13px 0 8px; font: 500 34px "Songti SC", SimSun, serif; }
+.auth-panel p { color: #788778; font-size: 12px; line-height: 1.8; }
+#auth-form { margin-top: 34px; }
+.auth-field { display: grid; gap: 10px; margin-bottom: 23px; color: #4b6650; font-size: 12px; }
+.auth-field input { width: 100%; padding: 12px 4px; border: 0; border-bottom: 1px solid #acbcab; border-radius: 0; outline: 0; background: transparent; color: #263a2d; }
+.auth-field input:focus { border-color: #315b41; }
+.auth-submit { width: 100%; margin-top: 10px; }
+.auth-switch { display: flex; align-items: center; justify-content: center; gap: 13px; margin-top: 28px; color: #829082; font-size: 12px; }
+.auth-switch .text-btn { font-size: 12px; }
+.topbar-actions { display: flex; align-items: center; gap: 22px; }
+.account-controls { display: flex; align-items: center; gap: 11px; font-size: 12px; white-space: nowrap; }
+#account-name { max-width: 125px; overflow: hidden; text-overflow: ellipsis; color: #607361; }
+.account-controls .text-btn { font-size: 12px; }
+
 .welcome { min-height: 215px; display: flex; align-items: end; gap: 35px; position: relative; overflow: hidden; background: #284133; color: #f7f4e8; padding: 34px 43px; }
 .welcome::before { content: ""; position: absolute; top: -80px; right: 14%; width: 240px; height: 240px; border: 1px solid #ffffff20; border-radius: 50%; box-shadow: 0 0 0 52px #ffffff08, 0 0 0 104px #ffffff06; pointer-events: none; }
 .welcome .eyebrow { color: #c9ac8e; }
@@ -229,6 +250,12 @@ dialog::backdrop { background: #14231acc; }
   .item-daily span { display: block; margin-bottom: 5px; color: #869487; font-size: 10px; }
 }
 @media (max-width: 820px) {
+  .auth-screen { grid-template-columns: 1fr; }
+  .auth-intro { min-height: 260px; padding: 28px 35px; }
+  .auth-intro h1 { font-size: 38px; margin: 14px 0 3px; }
+  .auth-intro p { margin: 0; }
+  .auth-number { display: none; }
+  .auth-panel { padding: 38px 30px 60px; }
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat-card:nth-child(3) { border-left: 0; padding-left: 0; border-top: 1px solid #dce0d5; }
   .stat-card:nth-child(4) { border-top: 1px solid #dce0d5; }
@@ -237,6 +264,9 @@ dialog::backdrop { background: #14231acc; }
   .welcome-seal { margin-left: auto; }
 }
 @media (max-width: 650px) {
+  .auth-intro { min-height: 230px; padding: 22px; }
+  .auth-intro h1 { font-size: 31px; }
+  .auth-panel { padding: 30px 22px 55px; }
   .app-shell { display: block; }
   .sidebar { position: static; height: auto; width: 100%; padding: 13px 17px; display: flex; flex-direction: row; align-items: center; gap: 12px; }
   .brand { gap: 8px; }
@@ -247,7 +277,8 @@ dialog::backdrop { background: #14231acc; }
   .nav-link { width: auto; border: 0; padding: 9px 7px; gap: 0; font-size: 12px; white-space: nowrap; }
   .nav-index { display: none; }
   .main-content { padding: 25px 17px 55px; }
-  .topbar { margin-bottom: 22px; padding-bottom: 18px; align-items: center; }
+  .topbar { margin-bottom: 22px; padding-bottom: 18px; align-items: center; flex-wrap: wrap; }
+  .topbar-actions { width: 100%; justify-content: space-between; gap: 10px; }
   .topbar h1 { font-size: 28px; margin-top: 8px; }
   .topbar .eyebrow { font-size: 9px; }
   .primary-btn { padding: 8px 11px; font-size: 12px; white-space: nowrap; }
