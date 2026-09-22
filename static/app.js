@@ -6,6 +6,13 @@ function iconMarkup(type) {
   const key = Object.prototype.hasOwnProperty.call(iconTypes, type) ? type : 'other';
   return `<svg class="type-icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#${key}"></use></svg>`;
 }
+function iconTile(type, className = 'item-icon') {
+  const key = Object.prototype.hasOwnProperty.call(iconTypes, type) ? type : 'other';
+  return `<span class="${className}" data-type="${key}">${iconMarkup(key)}</span>`;
+}
+function decorativeIcon(name) {
+  return `<svg class="type-icon" aria-hidden="true"><use href="/static/icons.svg#${name}"></use></svg>`;
+}
 const todayLocal = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -16,7 +23,7 @@ let detailReturnView = 'items';
 let formState = null;
 let toastTimer;
 let csrfToken = null;
-let authMode = 'login';
+let currentUser = null;
 let sessionEpoch = 0;
 
 function escapeHtml(value) {
@@ -43,83 +50,58 @@ async function api(path, options = {}) {
     try { message = (await response.json()).error || message; } catch (_) { /* response has no JSON */ }
     if (response.status === 401 && !path.startsWith('/api/auth/')) {
       showAuth();
-      csrfToken = (await api('/api/auth/me')).csrf_token;
+    }
+    if (response.status === 403 && !path.startsWith('/api/auth/')) {
+      const state = await api('/api/auth/me');
+      if (!state.user || state.user.id !== currentUser?.id) showAuth();
+      else csrfToken = state.csrf_token;
     }
     throw new Error(message);
   }
   return response.status === 204 ? null : response.json();
 }
-function setAuthMode(mode) {
-  authMode = mode;
-  const register = mode === 'register';
-  $('#auth-title').textContent = register ? '建立档案' : '登录档案';
-  $('#auth-subtitle').textContent = register ? '创建账号后，就能开始记录自己的物品。' : '输入用户名和密码，继续查看你的物品。';
-  $('#confirm-field').classList.toggle('hidden', !register);
-  $('#confirm-field input').required = register;
-  $('#auth-form [name="password"]').autocomplete = register ? 'new-password' : 'current-password';
-  $('#auth-submit').textContent = register ? '注册并进入' : '登录';
-  $('#auth-switch-text').textContent = register ? '已有账号？' : '还没有账号？';
-  $('#auth-toggle').textContent = register ? '返回登录 ↗' : '注册新账号 ↗';
-  $('#auth-error').classList.add('hidden');
-  $('#auth-form').reset();
-}
-function showAuth() {
+function clearAccount() {
   sessionEpoch++;
   if ($('#form-dialog').open) $('#form-dialog').close();
   allItems = [];
   currentItem = null;
+  currentUser = null;
   formState = null;
+  csrfToken = null;
   $('#search-input').value = '';
   $('#status-filter').value = 'all';
   for (const selector of ['#items-list', '#detail-content', '#recent-items', '#stats-grid', '#category-chart', '#status-chart', '#monthly-chart', '#review-items', '#unknown-items']) $(selector).replaceChildren();
   $('#account-name').textContent = '';
+  $('#item-count').textContent = '';
+  $('#review-count').textContent = '';
+  clearTimeout(toastTimer);
+  $('#toast').classList.add('hidden');
   $('#app-shell').classList.add('hidden');
-  $('#auth-screen').classList.remove('hidden');
-  setAuthMode('login');
+}
+function showAuth() {
+  clearAccount();
+  location.replace('/login?expired=1');
 }
 async function showApp(user) {
   sessionEpoch++;
+  currentUser = user;
   $('#account-name').textContent = user.username;
-  $('#auth-screen').classList.add('hidden');
+  $('#app-loading').classList.add('hidden');
   $('#app-shell').classList.remove('hidden');
   showView('items');
   try { await refreshAll(); }
   catch (error) { showToast(`部分数据加载失败：${error.message}`, true); }
 }
-async function submitAuth(event) {
-  event.preventDefault();
-  const form = $('#auth-form');
-  const data = Object.fromEntries(new FormData(form).entries());
-  const error = $('#auth-error');
-  error.classList.add('hidden');
-  if (authMode === 'register' && data.password !== data.confirm_password) {
-    error.textContent = '两次输入的密码不一致';
-    error.classList.remove('hidden');
-    return;
-  }
-  const submit = $('#auth-submit');
-  submit.disabled = true;
-  try {
-    const result = await api(`/api/auth/${authMode === 'register' ? 'register' : 'login'}`, {
-      method: 'POST', body: JSON.stringify({ username: data.username.trim(), password: data.password }),
-    });
-    csrfToken = result.csrf_token;
-    form.reset();
-    await showApp(result.user);
-  } catch (problem) {
-    error.textContent = problem.message;
-    error.classList.remove('hidden');
-  } finally { submit.disabled = false; }
-}
 async function bootstrap() {
+  $('#app-retry').classList.add('hidden');
   try {
     const state = await api('/api/auth/me');
     csrfToken = state.csrf_token;
     if (state.user) await showApp(state.user);
     else showAuth();
   } catch (error) {
-    showAuth();
-    showToast(error.message, true);
+    $('#app-loading p').textContent = '手账暂时没能打开，请检查服务后重试。';
+    $('#app-retry').classList.remove('hidden');
   }
 }
 async function run(action, successMessage) {
@@ -131,7 +113,7 @@ function showView(name) {
   for (const link of document.querySelectorAll('.nav-link')) link.classList.toggle('active', link.dataset.view === name);
   $('#page-title').textContent = ({ dashboard: '数据概览', items: '我的物品', review: '待复盘', detail: '物品详情' })[name];
   $('#section-number').textContent = ({ items: '01', dashboard: '02', review: '03', detail: '01' })[name];
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
 }
 function badge(status) { return `<span class="badge ${escapeHtml(status)}">${statusNames[status]}</span>`; }
 function empty(title, subtitle = '') { return `<div class="empty"><strong>${title}</strong>${subtitle}</div>`; }
@@ -149,7 +131,7 @@ async function refreshAll() {
   renderReview(insights);
 }
 function renderRecentItems() {
-  $('#recent-items').innerHTML = allItems.length ? allItems.slice(0, 4).map((item) => `<div class="mini-item"><span class="mini-icon">${iconMarkup(item.icon_type)}</span><div class="mini-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${item.purchase_date}</small></div>${badge(item.status)}<span class="mini-price">${yuan(item.purchase_price)}</span></div>`).join('') : empty('还没有物品', '点击右上角“添加物品”开始记录。');
+  $('#recent-items').innerHTML = allItems.length ? allItems.slice(0, 4).map((item) => `<div class="mini-item">${iconTile(item.icon_type, 'mini-icon')}<div class="mini-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${item.purchase_date}</small></div>${badge(item.status)}<span class="mini-price">${yuan(item.purchase_price)}</span></div>`).join('') : empty('还没有物品', '点击右上角“添加物品”开始记录。');
 }
 function renderDashboard(stats, insights) {
   const cards = [
@@ -182,16 +164,79 @@ function renderItems() {
   }
   $('#items-list').innerHTML = filtered.length ? filtered.map((item) => `
     <article class="item-card" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}">
-      <div class="item-card-head"><span class="item-icon">${iconMarkup(item.icon_type)}</span><div class="item-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other}</small></div><div class="item-status">${badge(item.status)}</div></div>
+      <div class="item-card-head">${iconTile(item.icon_type, 'item-icon')}<div class="item-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other}</small></div><div class="item-status">${badge(item.status)}</div></div>
       <div class="item-purchase">购于 ${item.purchase_date}</div>
       <div class="item-card-metrics"><div><span>${item.status === 'disposed' ? '曾持有' : '已持有'}</span><strong>${item.holding_days} 天</strong></div><div><span>购买价/天</span><strong>${item.daily_purchase_cost === null ? '暂无' : yuan(item.daily_purchase_cost)}</strong></div><div><span>净成本/天</span><strong>${item.daily_net_cost === null ? '暂无' : yuan(item.daily_net_cost)}</strong></div></div>
+      ${itemHint(item)}
       <div class="item-card-foot"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong><span class="item-card-arrow" aria-hidden="true">↗</span></div>
     </article>`).join('') : empty('没有找到物品', '可以调整搜索词或状态筛选。');
+}
+function itemHint(item) {
+  const today = item.milestones.earned.find((entry) => entry.is_today);
+  const target = item.daily_target;
+  let text = '';
+  if (today) text = `今天，${today.label}。值得记住的一天！`;
+  else if (target) {
+    if (target.status === 'reached') text = `已达成每天 ${yuan(target.amount)} 的小目标`;
+    else if (target.status === 'closed') text = '持有已结束，花费目标未达成';
+    else text = `距离每天 ${yuan(target.amount)}，还需 ${target.remaining_days.toLocaleString('zh-CN')} 天`;
+  } else if (item.milestones.next) text = `再过 ${item.milestones.next.remaining_days} 天，${item.milestones.next.label}`;
+  else if (item.milestones.earned.length) text = `留下了一枚「${item.milestones.earned.at(-1).label}」纪念章`;
+  return text ? `<div class="item-card-note ${today ? 'today-note' : ''}">${decorativeIcon(today ? 'spark' : 'sprout')}<span>${escapeHtml(text)}</span></div>` : '';
+}
+function milestonesMarkup(item) {
+  const { earned, next } = item.milestones;
+  return `<section class="journey-section"><div class="journey-heading"><div><span class="eyebrow">OUR LITTLE MILESTONES</span><h3>相伴的纪念</h3></div>${decorativeIcon('spark')}</div>${earned.length ? `<div class="keepsake-list">${earned.map((entry) => `<div class="keepsake ${entry.is_today ? 'is-today' : ''}" data-celebration="${entry.id}:${entry.date}"><strong>${entry.number}</strong><span>${entry.label}</span><small>${entry.date}</small></div>`).join('')}</div>` : `<p class="journey-empty">${item.status === 'disposed' ? '这段陪伴已经收好，记录会留在时间线上。' : '每一段长久的陪伴，都从第一天开始。'}</p>`}${next ? `<div class="keepsake-next">${decorativeIcon('sprout')}<span>距离「${next.label}」还有 <strong>${next.remaining_days} 天</strong><br><small>${next.date} · 下一枚纪念章</small></span></div>` : '<p class="hint">纪念章按持有时间生成，记录这段陪伴的足迹。</p>'}</section>`;
+}
+function targetMarkup(item) {
+  const target = item.daily_target;
+  const disposed = item.status === 'disposed';
+  let summary = '<p class="goal-state">给相伴的日子，设一个小期待。</p>';
+  if (target) {
+    const state = target.status === 'reached' ? '小目标已达成！' : target.status === 'closed' ? '持有已结束，目标未达成' : `还需持有 ${target.remaining_days.toLocaleString('zh-CN')} 天`;
+    const dateText = target.status === 'reached' ? `${target.reached_on} 达成 · 这段日子值得记住` : target.status === 'closed' ? '进度已停留在处置日' : target.estimated_date ? `预计 ${target.estimated_date} 达成` : '所需时间过长，暂无法显示预计日期';
+    summary = `<div class="goal-readout"><strong>${yuan(target.amount)}<small> / 天</small></strong><small>${target.progress_percent}%</small></div><div class="goal-track" role="progressbar" aria-label="购买价日均目标进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${target.progress_percent}"><span style="width:${target.progress_percent}%"></span></div><p class="goal-state">${state}</p><p class="goal-date">${dateText}</p>`;
+  } else if (disposed) summary = '<p class="goal-state">这件物品没有设置花费目标。</p>';
+  return `<section class="goal-section ${target?.status === 'reached' ? 'goal-reached' : ''}" ${target ? `data-celebration="goal:${target.amount}:${target.reached_on}"` : ''}><h3 class="goal-title">${decorativeIcon('sun')} 日均花费小目标</h3>${summary}${disposed ? '<p class="hint">已处置物品的目标只读；撤销处置后可调整。</p>' : `<form id="goal-form" class="goal-form"><label for="goal-amount">${target ? '调整目标' : '我希望购买价每天不超过'}（元）</label><div class="goal-presets">${['0.50','1.00','2.00'].map((amount) => `<button type="button" data-goal-preset="${amount}">¥${amount}</button>`).join('')}</div><div class="goal-input-row"><input id="goal-amount" name="amount" type="number" min="0.01" max="999999999" step="0.01" inputmode="decimal" required placeholder="例如 1.00" value="${target ? target.amount : ''}"><button type="submit" class="primary-btn">${target ? '更新' : '设定'}</button></div>${target ? '<button type="button" class="text-btn goal-cancel" data-action="cancel-goal">取消这个目标</button>' : ''}<p id="goal-error" class="form-error hidden" role="alert"></p></form>`}<p class="hint">仅按购买价格均摊，从购买日起计算。维修不改变此目标；这不是当天的支出，也不代表实际使用频率。</p></section>`;
+}
+const celebrated = new Set();
+function celebrateToday(item) {
+  if (!currentUser || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const events = item.milestones.earned.filter((entry) => entry.is_today).map((entry) => `${entry.id}:${entry.date}`);
+  if (item.daily_target?.is_today) events.push(`goal:${item.daily_target.amount}:${item.daily_target.reached_on}`);
+  for (const event of events) {
+    const key = `palm:celebration:${currentUser.id}:${item.id}:${event}`;
+    if (celebrated.has(key)) continue;
+    try { if (sessionStorage.getItem(key)) continue; sessionStorage.setItem(key, '1'); } catch (_) { /* Memory fallback when browser storage is disabled. */ }
+    celebrated.add(key);
+    document.querySelectorAll('[data-celebration]').forEach((element) => { if (element.dataset.celebration === event) element.classList.add('celebrate'); });
+  }
+}
+async function saveTarget(amount) {
+  const form = $('#goal-form');
+  if (!form || !currentItem) return;
+  const itemId = currentItem.id;
+  const epoch = sessionEpoch;
+  const error = $('#goal-error');
+  error.classList.add('hidden');
+  form.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+  try {
+    const saved = await api(`/api/items/${itemId}/daily-target`, { method: 'PUT', body: JSON.stringify({ amount }) });
+    if (epoch !== sessionEpoch) return;
+    allItems = allItems.map((item) => item.id === itemId ? saved : item);
+    renderItems();
+    if (currentItem?.id === itemId) { currentItem = saved; renderDetail(); }
+    showToast(amount === null ? '已取消目标' : '小目标已记下');
+  } catch (problem) {
+    if (epoch !== sessionEpoch) return;
+    error.textContent = problem.message;
+    error.classList.remove('hidden');
+  } finally { if (form.isConnected) form.querySelectorAll('button').forEach((button) => { button.disabled = false; }); }
 }
 function reviewRow(item, reason) {
   const description = reason === 'manual_idle' ? '已手动标记闲置' : reason === 'no_recent_record'
     ? `距最近一次记录的使用 ${item.days_since_last_recorded_use} 天` : '尚无使用记录，请按实际情况核对';
-  return `<article class="review-item" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}"><span class="review-icon">${iconMarkup(item.icon_type)}</span><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${description}</small></div><div class="review-cost"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><span class="review-arrow" aria-hidden="true">↗</span></article>`;
+  return `<article class="review-item" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}">${iconTile(item.icon_type, 'review-icon')}<div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${description}</small></div><div class="review-cost"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><span class="review-arrow" aria-hidden="true">↗</span></article>`;
 }
 function renderReview(insights) {
   $('#review-count').textContent = `${insights.review_items.length} 件待核对`;
@@ -228,15 +273,16 @@ function renderDetail() {
   const preview = item.status === 'disposed' ? '' : `<section class="detail-section preview-section"><h3>处置前试算</h3><label class="preview-label" for="preview-proceeds">预计回收金额（元）</label><input id="preview-proceeds" type="number" min="0" max="999999999" step="0.01" inputmode="decimal" placeholder="例如 200.00"><div id="preview-result" class="preview-result" aria-live="polite">输入预计回收金额，查看处置后的净成本。</div><p class="hint">仅供参考，试算不会保存数据或改变物品状态。</p></section>`;
   $('#detail-content').innerHTML = `
     <div class="detail-hero">
-      <div class="detail-top"><span class="item-icon">${iconMarkup(item.icon_type)}</span><div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · 购买于 ${item.purchase_date}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div>
+      <div class="detail-top">${iconTile(item.icon_type, 'item-icon')}<div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · 购买于 ${item.purchase_date}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div>
       <div class="detail-metrics"><div><span>购买价格</span><strong>${yuan(item.purchase_price)}</strong></div><div><span>维修费用</span><strong>${yuan(item.maintenance_total)}</strong></div><div><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><div><span>${item.status === 'disposed' ? '曾持有' : '已持有'} · 使用记录 ${item.usage_count} 条</span><strong>${item.holding_days} 天</strong></div></div>
     </div>
-    <div class="detail-grid"><div><section class="detail-section"><div class="section-heading"><h3>生命周期时间线</h3></div>${timeline(item)}</section></div>
+    <div class="detail-grid"><div>${milestonesMarkup(item)}${targetMarkup(item)}<section class="detail-section"><div class="section-heading"><h3>生命周期时间线</h3></div>${timeline(item)}</section></div>
     <div><section class="detail-section cost-section"><h3>持有成本</h3><div class="daily-cost"><span>购买价/天</span><strong>${item.daily_purchase_cost === null ? '暂无' : yuan(item.daily_purchase_cost)}</strong></div><div class="daily-cost"><span>净成本/天</span><strong>${item.daily_net_cost === null ? '暂无' : yuan(item.daily_net_cost)}</strong></div><p class="note-text">${item.daily_net_cost === null ? '持有不足一天，暂不计算日均花费。' : `按 ${item.holding_days} 天持有时间计算。`}<br>净成本包含维修费用，并扣除处置回收金额。<br>最近一次记录的使用：${item.last_recorded_use || '未记录'}</p></section>
     ${preview}
     <section class="detail-section"><h3>记录操作</h3><div class="detail-actions"><button class="small-btn" data-action="add-usage" ${item.status === 'disposed' ? 'disabled' : ''}>＋ 使用记录</button><button class="small-btn" data-action="add-maintenance" ${item.status === 'disposed' ? 'disabled' : ''}>＋ 维修记录</button>${item.disposal ? '' : '<button class="small-btn" data-action="add-disposal">＋ 处置物品</button>'}</div></section>
     <section class="detail-section"><h3>物品备注</h3><div class="note-text">${item.notes ? escapeHtml(item.notes) : '暂无备注'}</div></section>
     <section class="detail-section"><h3>计算说明</h3><p class="note-text">净成本 = 购买价格 + 维修费用 − 处置回收金额。<br>持有天数从购买日算至${item.disposal ? '处置日' : '今天'}。</p></section></div></div>`;
+  celebrateToday(item);
 }
 
 function updateDisposalPreview() {
@@ -342,6 +388,8 @@ function getRecord(type, id) {
 }
 
 document.addEventListener('click', async (event) => {
+  const preset = event.target.closest('[data-goal-preset]');
+  if (preset) { $('#goal-amount').value = preset.dataset.goalPreset; $('#goal-amount').focus(); return; }
   const nav = event.target.closest('[data-view]');
   if (nav) { if (nav.tagName === 'A') event.preventDefault(); showView(nav.dataset.view); return; }
   const open = event.target.closest('[data-open-item]');
@@ -352,11 +400,15 @@ document.addEventListener('click', async (event) => {
   if (remove) { const [type, rawId] = remove.dataset.deleteRecord.split(':'); await deleteRecord(type, Number(rawId)); return; }
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'add-item') openForm('item');
+  if (action === 'cancel-goal') await saveTarget(null);
   if (action === 'edit-item') openForm('item', currentItem);
   if (action === 'add-usage') openForm('usage');
   if (action === 'add-maintenance') openForm('maintenance');
   if (action === 'add-disposal') openForm('disposal');
   if (action === 'delete-item' && confirm('确定删除这个物品及其全部记录吗？')) await run(async () => { await api(`/api/items/${currentItem.id}`, { method: 'DELETE' }); currentItem = null; await refreshAll(); showView('items'); }, '物品已删除');
+});
+document.addEventListener('submit', (event) => {
+  if (event.target.id === 'goal-form') { event.preventDefault(); saveTarget($('#goal-amount').value); }
 });
 document.addEventListener('keydown', (event) => {
   const card = event.target.closest('[data-open-item]');
@@ -376,11 +428,12 @@ $('#entity-form').addEventListener('click', (event) => {
 });
 $('#close-dialog').addEventListener('click', () => $('#form-dialog').close());
 $('#cancel-dialog').addEventListener('click', () => $('#form-dialog').close());
-$('#auth-form').addEventListener('submit', submitAuth);
-$('#auth-toggle').addEventListener('click', () => setAuthMode(authMode === 'login' ? 'register' : 'login'));
+$('#app-retry').addEventListener('click', bootstrap);
 $('#logout-btn').addEventListener('click', () => run(async () => {
   await api('/api/auth/logout', { method: 'POST' });
-  showAuth();
-  csrfToken = (await api('/api/auth/me')).csrf_token;
+  clearAccount();
+  location.replace('/');
 }));
+window.addEventListener('pagehide', () => { clearAccount(); });
+window.addEventListener('pageshow', (event) => { if (event.persisted) location.reload(); });
 bootstrap();

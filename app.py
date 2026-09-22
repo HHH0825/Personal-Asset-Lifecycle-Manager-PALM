@@ -11,8 +11,9 @@ import secrets
 import sqlite3
 import tempfile
 
-from flask import Flask, g, jsonify, render_template, request, session
+from flask import Flask, g, jsonify, redirect, render_template, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
+from journey import item_journey
 
 
 ICON_TYPES = frozenset(("digital", "home", "daily", "clothing", "books", "mobility", "sports", "tools", "other"))
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS items (
     icon_type TEXT NOT NULL DEFAULT 'other',
     purchase_date TEXT NOT NULL,
     purchase_cents INTEGER NOT NULL CHECK (purchase_cents >= 0),
+    daily_target_cents INTEGER CHECK (daily_target_cents > 0),
     notes TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'idle', 'disposed')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -111,7 +113,8 @@ def create_app(test_config=None):
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='items'"
                 ).fetchone()
                 old_columns = [r[1] for r in source.execute("PRAGMA table_info(items)")] if old_table else []
-                for column, suffix in (("user_id", ".pre-accounts.bak"), ("icon_type", ".pre-icons.bak")):
+                for column, suffix in (("user_id", ".pre-accounts.bak"), ("icon_type", ".pre-icons.bak"),
+                                       ("daily_target_cents", ".pre-goals.bak")):
                     if not old_table or column in old_columns:
                         continue
                     backup_path = database_path.with_name(database_path.name + suffix)
@@ -142,8 +145,12 @@ def create_app(test_config=None):
             db().execute("UPDATE items SET icon_type = CASE category "
                          "WHEN '数码设备' THEN 'digital' WHEN '日常用品' THEN 'daily' "
                          "WHEN '出行用品' THEN 'mobility' ELSE 'other' END")
+        if "daily_target_cents" not in columns:
+            if not db().in_transaction:
+                db().execute("BEGIN IMMEDIATE")
+            db().execute("ALTER TABLE items ADD COLUMN daily_target_cents INTEGER CHECK (daily_target_cents > 0)")
         db().execute("CREATE INDEX IF NOT EXISTS idx_items_user ON items(user_id)")
-        db().execute("PRAGMA user_version = 3")
+        db().execute("PRAGMA user_version = 4")
         db().commit()
 
     @app.errorhandler(InputError)
@@ -156,7 +163,7 @@ def create_app(test_config=None):
 
     @app.after_request
     def avoid_cached_account_data(response):
-        if request.path.startswith("/api/"):
+        if request.path.startswith("/api/") or request.path in ("/", "/app", "/login", "/register"):
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -333,6 +340,9 @@ def create_app(test_config=None):
             "daily_purchase_cost": daily_cost(row["purchase_cents"], holding_days),
             "daily_net_cost": daily_cost(net_cents, holding_days),
         }
+        result.update(item_journey(date.fromisoformat(row["purchase_date"]), end,
+                                   row["purchase_cents"], row["daily_target_cents"],
+                                   date.today(), disposed=disposal is not None))
         if details:
             result["usage_records"] = [dict(r) for r in db().execute(
                 "SELECT * FROM usage_records WHERE item_id = ? ORDER BY used_on DESC, id DESC", (item_id,)
@@ -362,9 +372,44 @@ def create_app(test_config=None):
             if row[0] and purchase_date > row[0]:
                 raise InputError("购买日期不能晚于已有生命周期记录")
 
+    def signed_in_user():
+        user_id = session.get("user_id")
+        user = db().execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone() if user_id else None
+        if user_id and not user:
+            session.clear()
+        return user
+
     @app.get("/")
     def index():
+        return redirect("/app") if signed_in_user() else render_template("landing.html")
+
+    @app.get("/login")
+    @app.get("/register")
+    def auth_page():
+        if signed_in_user():
+            return redirect("/app")
+        return render_template("auth.html", register=request.path == "/register")
+
+    @app.get("/app")
+    def archive_page():
+        if not signed_in_user():
+            return redirect("/login")
         return render_template("index.html")
+
+    @app.put("/api/items/<int:item_id>/daily-target")
+    def daily_target(item_id):
+        row = item_row(item_id)
+        if row["status"] == "disposed":
+            raise InputError("已处置物品的目标只读，撤销处置后可修改")
+        data = body()
+        if "amount" not in data:
+            raise InputError("请填写目标金额，取消目标请提交 null")
+        amount = None if data["amount"] is None else cents_value(data, "amount", "目标金额")
+        if amount == 0:
+            raise InputError("目标金额必须大于零")
+        db().execute("UPDATE items SET daily_target_cents = ? WHERE id = ?", (amount, item_id))
+        db().commit()
+        return jsonify(item_payload(item_row(item_id), True))
 
     @app.route("/api/items", methods=["GET", "POST"])
     def items():

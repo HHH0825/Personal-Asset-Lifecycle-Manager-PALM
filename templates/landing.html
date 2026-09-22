@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import brand, icon %}
+{% block scripts %}<script src="/static/landing.js" defer></script>{% endblock %}
+{% block body_class %}landing-page{% endblock %}
+{% block content %}
+<header class="public-header page-width">
+  {{ brand() }}
+  <nav aria-label="网站导航"><a class="public-nav" href="#features">认识 PALM</a><a class="public-nav" href="#try-it">小体验</a><a href="/login" class="login-link">登录</a><a href="/register" class="primary-btn">注册 <span aria-hidden="true">↗</span></a></nav>
+</header>
+<main>
+  <section class="landing-hero page-width">
+    <div class="hero-copy"><span class="eyebrow"><i class="little-dot"></i> 给日常，留一份自己的记录</span><h1>你拥有的每一件，<br>都值得<span class="marked-word">被记住<svg viewBox="0 0 270 16" aria-hidden="true"><path d="M3 10Q100-3 265 5M20 15Q170 3 240 10"/></svg></span>。</h1><p>那副听过很多首歌的耳机，那辆陪你走过小路的单车。<br class="desktop-break">在 PALM，记下它们的来路、花费，以及相伴的日子。</p><div class="hero-actions"><a class="primary-btn large-btn" href="/register">建立我的物品档案 <span aria-hidden="true">↗</span></a><a href="#try-it" class="quiet-link">先体验一下 <span aria-hidden="true">↓</span></a></div><div class="hero-note"><span class="tiny-stamp" aria-hidden="true">p.</span> 一件物品，一段自己的故事。</div></div>
+    <div class="archive-scene" aria-label="示例物品档案插画">
+      <span class="scene-caption">日 常 收 藏 / 示例</span><span class="scene-spark spark-one" aria-hidden="true">✳</span>
+      <article class="scene-card scene-main"><span class="paper-tape" aria-hidden="true"></span><div class="scene-card-heading"><span class="item-icon" data-type="digital">{{ icon('headphones') }}</span><span class="badge active">使用中</span></div><h2>陪我通勤的耳机</h2><p>生活里的小小配乐</p><div class="scene-number">365 <span>天的陪伴</span></div><div class="scene-card-footer"><span>购买价 / 天</span><strong>¥1.00</strong></div></article>
+      <div class="scene-stamp"><span>PALM · KEEP A MEMORY</span><strong>1</strong><b>相伴一周年</b><span>值得记住的日子</span></div>
+      <article class="scene-card scene-small"><span class="item-icon" data-type="books">{{ icon('books') }}</span><div><strong>常翻的那本书</strong><small>书页里，也藏着日常。</small></div></article>
+      <div class="scene-label">好好使用，慢慢相伴 <span aria-hidden="true">↗</span></div>
+    </div>
+  </section>
+  <div class="chapter-strip"><div class="page-width"><span>让物品有迹可循</span><span>购入 <i>→</i> 使用 <i>→</i> 维修 <i>→</i> 闲置 <i>→</i> 去向</span><span aria-hidden="true">✳</span></div></div>
+  <section id="features" class="feature-section page-width">
+    <div class="landing-heading"><div><span class="eyebrow">01 / 关于你的物品</span><h2>收好物品，也收好日常。</h2></div><p>从一笔购买开始，<br>慢慢写成一份有温度的档案。</p></div>
+    <div class="feature-grid">
+      <article class="feature-card"><span class="feature-number">01</span><span class="feature-icon peach">{{ icon('other') }}</span><h3>每件物品，都有自己的档案</h3><p>记录购入、使用、维修与去向。换过的零件、一起走过的旅程，都能留在时间线上。</p><div class="feature-trail"><span>购入</span><i></i><span>使用</span><i></i><span>维修</span><i></i><span>继续相伴</span></div></article>
+      <article class="feature-card"><span class="feature-number">02</span><span class="feature-icon blue">{{ icon('sun') }}</span><h3>日子久了，花费也有了刻度</h3><p>一眼看到拥有多久、每天均摊多少钱。设一个小目标，等日均花费慢慢走向期待的数字。</p><div class="feature-cost"><span>购买价 / 天</span><strong>¥1<span>.00</span></strong><small>历史购买费用的均摊</small></div></article>
+      <article class="feature-card"><span class="feature-number">03</span><span class="feature-icon butter">{{ icon('spark') }}</span><h3>久一点的陪伴，值得纪念</h3><p>百日、一周年、下一周年，留下一枚小小纪念章。偶尔也回头看看，那些暂时闲下来的物品。</p><div class="feature-keepsakes"><span>100<small>相伴百日</small></span><span>1<small>相伴一年</small></span><span class="future-keepsake">2<small>下一段日常</small></span></div></article>
+    </div>
+  </section>
+  <section id="try-it" class="demo-section page-width">
+    <div class="demo-copy"><span class="eyebrow">02 / 给时间一点时间</span><h2>一把键盘，<br>每天花了多少钱？</h2><p>假设你花了 300 元买下一把键盘。<br>拖动滑块，看看相伴的日子怎样改变日均花费。</p><span class="demo-tag">示例体验 · 不保存数据</span></div>
+    <div class="demo-notebook"><div class="demo-item"><span class="item-icon" data-type="digital">{{ icon('keyboard') }}</span><div><strong>每天都在用的键盘</strong><small>购买价格 ¥300.00</small></div><span class="eyebrow">EXAMPLE</span></div><div class="demo-readout"><div><span>已持有</span><strong><output id="demo-days" for="demo-slider">150</output><small> 天</small></strong></div><div><span>购买价 / 天</span><strong>¥<output id="demo-cost" for="demo-slider">2.00</output></strong></div></div><label for="demo-slider" class="slider-label">拖动，翻过一些日子 <span aria-hidden="true">↔</span></label><input id="demo-slider" type="range" min="1" max="365" value="150" aria-label="示例物品持有天数"><div class="range-labels"><span>第 1 天</span><span>第 365 天</span></div><div class="demo-goal"><span id="demo-message" aria-live="polite">距离每天 1 元，还需 150 天</span><span aria-hidden="true">✳</span></div><div class="goal-track" role="progressbar" aria-label="示例目标进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" id="demo-progress"><span style="width:50%"></span></div><p class="hint">按购买价格均摊，日均花费不代表当天实际支出。</p></div>
+  </section>
+  <section class="landing-invite page-width"><span class="invite-doodle" aria-hidden="true">{{ icon('sprout') }}</span><span class="eyebrow">下一页，写你的故事</span><h2>从身边的第一件物品开始。</h2><p>每个账号都有自己的独立档案。<br>记下一件，剩下的慢慢来。</p><a href="/register" class="primary-btn large-btn">建立我的档案 <span aria-hidden="true">↗</span></a><a href="/login" class="quiet-link">已有账号，去登录</a></section>
+</main>
+<footer class="public-footer page-width"><span>PALM / 个人物品手账</span><span>物有所记，用有所知。</span></footer>
+{% endblock %}

@@ -287,6 +287,95 @@ class PalmApiTest(unittest.TestCase):
             create_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
             self.assertEqual(first.get("/api/items/1").json["icon_type"], "digital")
 
+    def test_public_pages_and_auth_redirects(self):
+        guest = self.app.test_client()
+        home = guest.get("/")
+        self.assertEqual(home.status_code, 200)
+        self.assertIn('id="demo-slider"', home.text)
+        self.assertNotIn('id="app-shell"', home.text)
+        self.assertIn('data-mode="login"', guest.get("/login").text)
+        self.assertIn('data-mode="register"', guest.get("/register").text)
+        self.assertEqual(guest.get("/app").location, "/login")
+        for path in ("/", "/login", "/register"):
+            self.assertEqual(self.client.get(path).location, "/app")
+        archive = self.client.get("/app")
+        self.assertEqual(archive.status_code, 200)
+        self.assertEqual(archive.headers["Cache-Control"], "no-store")
+        self.assertIn('id="app-shell"', archive.text)
+        self.assertNotIn('id="auth-form"', archive.text)
+        self.client.post("/api/auth/logout")
+        self.assertEqual(self.client.get("/").status_code, 200)
+        self.assertEqual(self.client.get("/app").location, "/login")
+
+    def test_daily_target_save_validation_isolation_and_persistence(self):
+        item = self.make_item(purchase_date=day(150), purchase_price="300.00")
+        path = f"/api/items/{item['id']}/daily-target"
+        self.assertIsNone(item["daily_target"])
+        for invalid in ("0", "-1", "NaN", True, "0.001", "1000000000", "", [], {}):
+            self.assertEqual(self.client.put(path, json={"amount": invalid}).status_code, 400, invalid)
+        self.assertEqual(self.client.put(path, json={}).status_code, 400)
+        response = self.client.put(path, json={"amount": "1.00"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["daily_target"]["progress_percent"], 50)
+        self.assertEqual(response.json["daily_target"]["remaining_days"], 150)
+        self.assertEqual(self.client.get("/api/items").json[0]["daily_target"], response.json["daily_target"])
+        self.client.post(f"/api/items/{item['id']}/maintenance", json={"maintained_on": day(), "cost": "900", "description": "维修"})
+        self.assertEqual(self.client.get(f"/api/items/{item['id']}").json["daily_target"], response.json["daily_target"])
+        other = self.app.test_client()
+        self.auth(other, "target_other", register=True)
+        self.assertEqual(other.put(path, json={"amount": "1"}).status_code, 404)
+        self.assertEqual(other.get("/api/items").json, [])
+        restarted = create_app({"TESTING": True, "DATABASE": self.database}).test_client()
+        self.auth(restarted, "owner")
+        self.assertEqual(restarted.get(f"/api/items/{item['id']}").json["daily_target"]["amount"], "1.00")
+        self.assertIsNone(self.client.put(path, json={"amount": None}).json["daily_target"])
+        self.client.environ_base["HTTP_X_CSRF_TOKEN"] = "wrong"
+        self.assertEqual(self.client.put(path, json={"amount": "1"}).status_code, 403)
+
+    def test_target_recalculates_on_item_and_disposal_edits(self):
+        item = self.make_item(purchase_date=day(300), purchase_price="300.01")
+        path = f"/api/items/{item['id']}"
+        goal = self.client.put(path + "/daily-target", json={"amount": "1"}).json
+        self.assertEqual(goal["daily_purchase_cost"], "1.00")
+        self.assertEqual(goal["daily_target"]["status"], "pending")
+        edit = {"name": item["name"], "category": item["category"], "purchase_date": day(300),
+                "purchase_price": "200.00", "notes": "", "status": "active"}
+        updated = self.client.put(path, json=edit).json
+        self.assertEqual(updated["daily_target"]["amount"], "1.00")
+        self.assertEqual(updated["daily_target"]["status"], "reached")
+        disposed = self.client.post(path + "/disposal", json={"disposed_on": day(150), "method": "sold", "proceeds": "1000", "notes": ""}).json
+        frozen = self.client.get(path).json
+        self.assertEqual((frozen["holding_days"], frozen["daily_target"]["status"]), (150, "closed"))
+        self.assertIsNone(frozen["milestones"]["next"])
+        self.assertEqual(self.client.put(path + "/daily-target", json={"amount": None}).status_code, 400)
+        self.client.put(f"/api/disposal/{disposed['id']}", json={"disposed_on": day(50), "method": "sold", "proceeds": "1000", "notes": ""})
+        self.assertEqual(self.client.get(path).json["daily_target"]["status"], "reached")
+        self.client.delete(f"/api/disposal/{disposed['id']}")
+        self.assertEqual(self.client.put(path + "/daily-target", json={"amount": "0.50"}).json["daily_target"]["status"], "pending")
+        self.assertEqual(self.client.put(path, json={**edit, "purchase_date": day(400)}).json["daily_target"]["status"], "reached")
+
+    def test_goal_migration_backup_and_idempotency(self):
+        item = self.make_item(purchase_price="135.25", icon_type="books")
+        self.client.post(f"/api/items/{item['id']}/usage", json={"used_on": day(2), "notes": "原有记录"})
+        # Recreate the immediately preceding schema by removing only the new column.
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute("ALTER TABLE items DROP COLUMN daily_target_cents")
+            connection.execute("PRAGMA user_version = 3")
+            connection.commit()
+        create_app({"TESTING": True, "DATABASE": self.database})
+        backup = Path(self.database + ".pre-goals.bak")
+        original_backup = backup.read_bytes()
+        with closing(sqlite3.connect(backup)) as connection:
+            self.assertNotIn("daily_target_cents", [row[1] for row in connection.execute("PRAGMA table_info(items)")])
+        detail = self.client.get(f"/api/items/{item['id']}").json
+        self.assertEqual((detail["purchase_price"], detail["icon_type"], detail["usage_records"][0]["notes"]),
+                         ("135.25", "books", "原有记录"))
+        self.assertIsNone(detail["daily_target"])
+        self.client.put(f"/api/items/{item['id']}/daily-target", json={"amount": "2"})
+        create_app({"TESTING": True, "DATABASE": self.database})
+        self.assertEqual(backup.read_bytes(), original_backup)
+        self.assertEqual(self.client.get(f"/api/items/{item['id']}").json["daily_target"]["amount"], "2.00")
+
 
 if __name__ == '__main__':
     unittest.main()

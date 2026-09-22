@@ -1,27 +1,15 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PALM · 个人物品资产管理</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <script src="/static/app.js" defer></script>
-</head>
-<body>
-  <section id="auth-screen" class="auth-screen hidden" aria-labelledby="auth-title">
-    <div class="auth-intro"><a class="brand" href="/" aria-label="PALM 首页"><span class="brand-mark" aria-hidden="true">p.</span><span class="brand-name">PALM<small>个人物品档案</small></span></a><div><span class="eyebrow">PERSONAL ARCHIVE / 个人物品档案</span><h1>给日常物品，<br>留一份自己的记录。</h1><p>从购买、使用到处置，回看每件物品的时间与花费。</p></div><span class="auth-number">01 / 物有所记</span></div>
-    <div class="auth-panel"><div class="auth-panel-inner"><span class="eyebrow">欢迎来到 PALM</span><h2 id="auth-title">登录档案</h2><p id="auth-subtitle">输入用户名和密码，继续查看你的物品。</p>
-      <form id="auth-form"><label class="auth-field"><span>用户名</span><input name="username" autocomplete="username" minlength="3" maxlength="32" required></label><label class="auth-field"><span>密码</span><input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><label id="confirm-field" class="auth-field hidden"><span>确认密码</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="8" maxlength="128"></label><p id="auth-error" class="form-error hidden" role="alert"></p><button id="auth-submit" type="submit" class="primary-btn auth-submit">登录</button></form>
-      <div class="auth-switch"><span id="auth-switch-text">还没有账号？</span><button id="auth-toggle" type="button" class="text-btn">注册新账号 ↗</button></div>
-    </div></div>
-  </section>
+{% extends 'base.html' %}
+{% block scripts %}<script src="/static/app.js" defer></script>{% endblock %}
+{% block body_class %}archive-page{% endblock %}
+{% block content %}
+<div id="app-loading" class="app-loading" role="status"><span class="brand-mark" aria-hidden="true">p.</span><p>正在翻开你的手账…</p><button id="app-retry" class="secondary-btn hidden" type="button">重新加载</button></div>
   <div id="app-shell" class="app-shell hidden">
     <aside class="sidebar">
       <a class="brand" href="#items" data-view="items" aria-label="PALM 物品主页">
         <span class="brand-mark" aria-hidden="true">p.</span>
-        <span class="brand-name">PALM<small>个人物品档案</small></span>
+        <span class="brand-name">PALM<small>个人物品手账</small></span>
       </a>
-      <div class="sidebar-caption">你的日常，值得妥善记录。</div>
+      <div class="sidebar-caption"><svg class="type-icon" aria-hidden="true"><use href="/static/icons.svg#sprout"></use></svg><span>把日常收好，<br>与喜欢的物品慢慢相伴。</span></div>
       <nav aria-label="主导航">
         <button class="nav-link active" data-view="items"><span class="nav-index">01</span><span>物品档案</span></button>
         <button class="nav-link" data-view="dashboard"><span class="nav-index">02</span><span>数据概览</span></button>
@@ -74,7 +62,7 @@
       </section>
 
       <section id="items-view" class="view">
-        <div class="list-intro"><div><span class="eyebrow">01 / 物品档案</span><p>一件件记下，日子便有了形状。</p></div><span id="item-count" class="count-chip"></span></div>
+        <div class="list-intro"><div><span class="eyebrow">THE EVERYDAY COLLECTION</span><p>喜欢的物品，慢慢相伴。</p></div><span id="item-count" class="count-chip"></span></div>
         <div class="toolbar">
           <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="搜索名称或分类" aria-label="搜索名称或分类"></label>
           <select id="status-filter" aria-label="筛选状态"><option value="all">全部状态</option><option value="active">使用中</option><option value="idle">闲置</option><option value="disposed">已处置</option></select>
@@ -102,5 +90,4 @@
       <div class="dialog-actions"><button type="button" id="cancel-dialog" class="secondary-btn">取消</button><button type="submit" class="primary-btn">保存记录</button></div>
     </form>
   </dialog>
-</body>
-</html>
+{% endblock %}

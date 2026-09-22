@@ -1,0 +1,6 @@
+{% macro icon(type, extra='') -%}
+<svg class="type-icon {{ extra }}" aria-hidden="true" focusable="false"><use href="/static/icons.svg#{{ type }}"></use></svg>
+{%- endmacro %}
+{% macro brand(href='/') -%}
+<a class="brand" href="{{ href }}" aria-label="PALM 首页"><span class="brand-mark" aria-hidden="true">p.</span><span class="brand-name">PALM<small>个人物品手账</small></span></a>
+{%- endmacro %}

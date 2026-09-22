@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import brand, icon %}
+{% block title %}{{ '注册' if register else '登录' }} · PALM{% endblock %}
+{% block scripts %}<script src="/static/auth.js" defer></script>{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<main class="auth-screen" data-mode="{{ 'register' if register else 'login' }}">
+  <section class="auth-intro">{{ brand() }}<div class="auth-story"><span class="eyebrow">你的日常，值得好好收藏</span><h1>给物品一个位置，<br>给时间一点痕迹。</h1><div class="auth-illustration" aria-hidden="true"><span class="auth-object">{{ icon('headphones') }}</span><span class="auth-object">{{ icon('books') }}</span><span class="auth-object">{{ icon('daily') }}</span><i>✳</i></div><p>来路、花费、相伴的日子。<br>翻开手账，接着记录自己的故事。</p></div><span class="auth-number">PALM / 一件物品，一段日常</span></section>
+  <section class="auth-panel" aria-labelledby="auth-title"><div class="auth-panel-inner"><a href="/" class="back-home">← 返回首页</a><span class="eyebrow">{{ '翻开新的一页' if register else '很高兴，再次见到你' }}</span><h2 id="auth-title">{{ '建立你的物品手账' if register else '欢迎回到你的手账' }}</h2><p>{{ '注册一个账号，从第一件物品开始。' if register else '登录后，继续记录那些陪伴你的物品。' }}</p>
+    <form id="auth-form"><label class="auth-field"><span>用户名</span><input name="username" autocomplete="username" minlength="3" maxlength="32" placeholder="3–32 个字母、数字、汉字或下划线" required></label><label class="auth-field"><span>密码</span><input name="password" type="password" autocomplete="{{ 'new-password' if register else 'current-password' }}" minlength="8" maxlength="128" placeholder="至少 8 个字符" required></label>{% if register %}<label class="auth-field"><span>确认密码</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="再次输入密码" required></label>{% endif %}<p id="auth-error" class="form-error hidden" role="alert"></p><button id="auth-submit" type="submit" class="primary-btn auth-submit" disabled>{{ '注册并进入' if register else '登录我的档案' }} <span aria-hidden="true">↗</span></button><button id="auth-retry" type="button" class="text-btn hidden">重新连接</button></form>
+    <div class="auth-switch"><span>{{ '已经有账号？' if register else '还没有自己的手账？' }}</span><a class="quiet-link" href="{{ '/login' if register else '/register' }}">{{ '去登录' if register else '注册新账号' }} ↗</a></div><p class="auth-privacy">{{ icon('other') }} 每个账号，都有独立的物品档案。</p>
+  </div></section>
+</main>
+{% endblock %}
