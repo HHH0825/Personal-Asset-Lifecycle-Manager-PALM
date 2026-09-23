@@ -2,11 +2,11 @@
 {% block scripts %}<script src="/static/app.js" defer></script>{% endblock %}
 {% block body_class %}archive-page{% endblock %}
 {% block content %}
-<div id="app-loading" class="app-loading" role="status"><span class="brand-mark" aria-hidden="true">p.</span><p>正在翻开你的手账…</p><button id="app-retry" class="secondary-btn hidden" type="button">重新加载</button></div>
+<div id="app-loading" class="app-loading" role="status"><img class="brand-mark" src="/static/palm-logo.svg" alt="" aria-hidden="true" width="42" height="42"><p>正在翻开你的手账…</p><button id="app-retry" class="secondary-btn hidden" type="button">重新加载</button></div>
   <div id="app-shell" class="app-shell hidden">
     <aside class="sidebar">
       <a class="brand" href="#items" data-view="items" aria-label="PALM 物品主页">
-        <span class="brand-mark" aria-hidden="true">p.</span>
+        <img class="brand-mark" src="/static/palm-logo.svg" alt="" aria-hidden="true" width="42" height="42">
         <span class="brand-name">PALM<small>个人物品手账</small></span>
       </a>
       <div class="sidebar-caption"><svg class="type-icon" aria-hidden="true"><use href="/static/icons.svg#sprout"></use></svg><span>把日常收好，<br>与喜欢的物品慢慢相伴。</span></div>

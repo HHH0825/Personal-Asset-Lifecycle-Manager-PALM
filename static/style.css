@@ -20,9 +20,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .brand { display: flex; align-items: center; gap: 12px; color: #22362b; text-decoration: none; }
 .brand-mark {
-  width: 42px; height: 42px; display: grid; place-items: center;
-  background: #2c4535; color: #f4f2e8; font-family: Georgia, serif;
-  font-size: 25px; font-style: italic; line-height: 1;
+  width: 42px; height: 42px; display: block; flex: none; object-fit: contain;
 }
 .brand-name { font: 700 25px/1 Georgia, serif; letter-spacing: -.04em; }
 .brand-name small { display: block; margin-top: 7px; font: 500 10px/1.2 "Microsoft YaHei", sans-serif; letter-spacing: .15em; }
@@ -288,7 +286,7 @@ dialog::backdrop { background: #14231acc; }
   .app-shell { display: block; }
   .sidebar { position: static; height: auto; width: 100%; padding: 13px 17px; display: flex; flex-direction: row; align-items: center; gap: 12px; }
   .brand { gap: 8px; }
-  .brand-mark { width: 31px; height: 31px; font-size: 19px; }
+  .brand-mark { width: 31px; height: 31px; }
   .brand-name { font-size: 18px; }
   .brand-name small, .sidebar-caption, .sidebar-foot { display: none; }
   .sidebar nav { display: flex; margin-left: auto; border: 0; gap: 3px; }

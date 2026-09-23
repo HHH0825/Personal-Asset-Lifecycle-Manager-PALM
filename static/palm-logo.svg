@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">PALM 手账与新芽</title>
+  <path fill="#254b3d" d="M16 3h32c7.2 0 13 5.8 13 13v32c0 7.2-5.8 13-13 13H16C8.8 61 3 55.2 3 48V16C3 8.8 8.8 3 16 3Z"/>
+  <path fill="#fffaf0" d="M9 29.5c7-2.8 15.1-2 23 2.6V52c-7.8-4.4-15.8-5-23-2.5v-20Zm46 0c-7-2.8-15.1-2-23 2.6V52c7.8-4.4 15.8-5 23-2.5v-20Z"/>
+  <path fill="none" stroke="#cad8ba" stroke-linecap="round" stroke-width="2" d="M14 35c4.8-.9 9.1-.1 13 1.7m10 0c3.9-1.8 8.2-2.6 13-1.7M14 41c4.8-.9 9.1-.1 13 1.7m10 0c3.9-1.8 8.2-2.6 13-1.7"/>
+  <path fill="none" stroke="#254b3d" stroke-linecap="round" stroke-width="2.5" d="M32 45V28"/>
+  <path fill="#b9d5a8" d="M30.8 27.9c-8.4-.1-13.7-4.2-14.2-11.4 8.3-.1 13.7 4 14.2 11.4Zm2.4-.4c-.1-9.1 4.7-14.3 12.5-15.1.1 9.1-4.6 14.2-12.5 15.1Z"/>
+  <path fill="none" stroke="#254b3d" stroke-linecap="round" stroke-width="1.6" d="M24 22.5 32 30l7.6-10"/>
+  <circle cx="49.5" cy="15.5" r="3.3" fill="#c88359"/>
+</svg>

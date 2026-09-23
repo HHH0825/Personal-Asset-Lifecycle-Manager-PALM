@@ -10,7 +10,7 @@ button, .primary-btn, .secondary-btn { touch-action:manipulation; }
 .primary-btn:hover { background:#37644f; transform:translateY(-1px); }
 .primary-btn:active, .secondary-btn:active { transform:translateY(1px); box-shadow:none; }
 .secondary-btn { background:var(--sheet); }
-.brand-mark { border-radius:11px 11px 11px 3px; background:var(--ink); }
+.brand-mark { border-radius:11px 11px 11px 3px; }
 .brand-name small { font-size:10px; letter-spacing:.16em; }
 .eyebrow { color:var(--rust); font-size:10px; letter-spacing:.12em; }
 .type-icon { overflow:visible; }
@@ -34,7 +34,7 @@ button, .primary-btn, .secondary-btn { touch-action:manipulation; }
 .hero-copy>p { font-size:13px; color:var(--muted); line-height:2.1; margin:28px 0 30px; }
 .hero-actions { display:flex; align-items:center; gap:25px; flex-wrap:wrap; }
 .hero-note { display:flex; align-items:center; gap:10px; margin-top:35px; font-size:11px; color:var(--muted); }
-.tiny-stamp { display:grid; place-items:center; width:28px; height:28px; border:1px solid #c6cab8; border-radius:50%; font:italic 17px Georgia,serif; color:var(--rust); }
+.tiny-stamp { display:block; flex:none; width:28px; height:28px; object-fit:contain; }
 .archive-scene { position:relative; height:460px; border-radius:48% 46% 42% 45%; background:radial-gradient(ellipse at 50% 45%,#e6e9da 0%,#edeedf 57%,transparent 58%); }
 .scene-caption { position:absolute; top:8px; right:75px; color:#849078; font-size:10px; }
 .scene-card { background:var(--sheet); border:1px solid #d8ddcb; border-radius:11px; box-shadow:5px 10px 0 #344b3510,0 12px 30px #2c42200b; }
