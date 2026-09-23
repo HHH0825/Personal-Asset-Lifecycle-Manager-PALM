@@ -2,6 +2,11 @@ const $ = (selector) => document.querySelector(selector);
 const statusNames = { active: '使用中', idle: '闲置', disposed: '已处置' };
 const methodNames = { sold: '出售', gifted: '赠送', discarded: '丢弃', other: '其他' };
 const iconTypes = { digital: '数码', home: '家居', daily: '日常用品', clothing: '衣物', books: '书籍文具', mobility: '出行', sports: '运动', tools: '工具', other: '其他' };
+const avatarNames = { sprout: '新芽', cat: '猫', book: '书', sun: '太阳', bike: '单车', star: '星星' };
+function avatarMarkup(key, className = 'avatar') {
+  const avatar = Object.prototype.hasOwnProperty.call(avatarNames, key) ? key : 'sprout';
+  return `<span class="${className}" data-avatar="${avatar}" aria-hidden="true"><svg><use href="/static/avatars.svg#${avatar}"></use></svg></span>`;
+}
 function iconMarkup(type) {
   const key = Object.prototype.hasOwnProperty.call(iconTypes, type) ? type : 'other';
   return `<svg class="type-icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#${key}"></use></svg>`;
@@ -72,11 +77,25 @@ function clearAccount() {
   $('#status-filter').value = 'all';
   for (const selector of ['#items-list', '#detail-content', '#recent-items', '#stats-grid', '#category-chart', '#status-chart', '#monthly-chart', '#review-items', '#unknown-items']) $(selector).replaceChildren();
   $('#account-name').textContent = '';
+  $('#username-form').reset();
+  $('#password-form').reset();
   $('#item-count').textContent = '';
   $('#review-count').textContent = '';
   clearTimeout(toastTimer);
   $('#toast').classList.add('hidden');
   $('#app-shell').classList.add('hidden');
+}
+function setAccountUser(user) {
+  currentUser = user;
+  $('#account-name').textContent = user.username;
+  const key = Object.prototype.hasOwnProperty.call(avatarNames, user.avatar_key) ? user.avatar_key : 'sprout';
+  for (const selector of ['#account-avatar', '#profile-avatar']) {
+    const el = $(selector);
+    el.dataset.avatar = key;
+    el.innerHTML = `<svg aria-hidden="true"><use href="/static/avatars.svg#${key}"></use></svg>`;
+  }
+  $('#new-username').value = user.username;
+  $('#avatar-options').innerHTML = Object.entries(avatarNames).map(([avatar, name]) => `<label class="avatar-choice"><input type="radio" name="avatar_key" value="${avatar}" ${key === avatar ? 'checked' : ''}><span class="avatar-choice-face">${avatarMarkup(avatar)}<span>${name}</span></span></label>`).join('');
 }
 function showAuth() {
   clearAccount();
@@ -84,8 +103,7 @@ function showAuth() {
 }
 async function showApp(user) {
   sessionEpoch++;
-  currentUser = user;
-  $('#account-name').textContent = user.username;
+  setAccountUser(user);
   $('#app-loading').classList.add('hidden');
   $('#app-shell').classList.remove('hidden');
   showView('items');
@@ -109,10 +127,12 @@ async function run(action, successMessage) {
   catch (error) { showToast(error.message, true); }
 }
 function showView(name) {
+  if (name === 'account' && currentUser) setAccountUser(currentUser);
   for (const view of document.querySelectorAll('.view')) view.classList.toggle('hidden', view.id !== `${name}-view`);
   for (const link of document.querySelectorAll('.nav-link')) link.classList.toggle('active', link.dataset.view === name);
-  $('#page-title').textContent = ({ dashboard: '数据概览', items: '我的物品', review: '待复盘', detail: '物品详情' })[name];
-  $('#section-number').textContent = ({ items: '01', dashboard: '02', review: '03', detail: '01' })[name];
+  $('#page-title').textContent = ({ dashboard: '数据概览', items: '我的物品', review: '待复盘', detail: '物品详情', account: '个人设置' })[name];
+  $('#section-number').textContent = ({ items: '01', dashboard: '02', review: '03', detail: '01', account: '04' })[name];
+  $('#add-item-btn').classList.toggle('hidden', name === 'account');
   window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
 }
 function badge(status) { return `<span class="badge ${escapeHtml(status)}">${statusNames[status]}</span>`; }
@@ -409,7 +429,46 @@ document.addEventListener('click', async (event) => {
 });
 document.addEventListener('submit', (event) => {
   if (event.target.id === 'goal-form') { event.preventDefault(); saveTarget($('#goal-amount').value); }
+  if (['avatar-form', 'username-form', 'password-form'].includes(event.target.id)) {
+    event.preventDefault();
+    saveAccountForm(event.target);
+  }
 });
+async function saveAccountForm(form) {
+  const errorBox = $(`#${form.id.replace('-form', '-error')}`);
+  errorBox.classList.add('hidden');
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    if (form.id === 'avatar-form') {
+      const avatar_key = new FormData(form).get('avatar_key');
+      const result = await api('/api/account/avatar', { method: 'PUT', body: JSON.stringify({ avatar_key }) });
+      setAccountUser(result.user);
+      showToast('头像已更新');
+    } else if (form.id === 'username-form') {
+      const data = Object.fromEntries(new FormData(form));
+      const result = await api('/api/account/username', { method: 'PUT', body: JSON.stringify(data) });
+      setAccountUser(result.user);
+      form.elements.current_password.value = '';
+      showToast('用户名已更新');
+    } else {
+      const data = Object.fromEntries(new FormData(form));
+      if (data.new_password !== data.confirm_password) throw new Error('两次输入的新密码不一致');
+      await api('/api/account/password', { method: 'PUT', body: JSON.stringify({ current_password: data.current_password, new_password: data.new_password }) });
+      clearAccount();
+      location.replace('/login?password_changed=1');
+    }
+  } catch (error) {
+    errorBox.textContent = error.message;
+    errorBox.classList.remove('hidden');
+  } finally {
+    button.disabled = false;
+  }
+}
+$('#avatar-reset').addEventListener('click', () => run(async () => {
+  const result = await api('/api/account/avatar', { method: 'PUT', body: JSON.stringify({ avatar_key: null }) });
+  setAccountUser(result.user);
+}, '已恢复默认头像'));
 document.addEventListener('keydown', (event) => {
   const card = event.target.closest('[data-open-item]');
   if (card && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); run(() => openItem(Number(card.dataset.openItem))); }

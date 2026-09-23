@@ -17,6 +17,7 @@ from journey import item_journey
 
 
 ICON_TYPES = frozenset(("digital", "home", "daily", "clothing", "books", "mobility", "sports", "tools", "other"))
+AVATAR_KEYS = frozenset(("sprout", "cat", "book", "sun", "bike", "star"))
 
 
 SCHEMA = """
@@ -26,6 +27,8 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL,
     username_key TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    avatar_key TEXT,
+    auth_version INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS items (
@@ -113,9 +116,17 @@ def create_app(test_config=None):
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='items'"
                 ).fetchone()
                 old_columns = [r[1] for r in source.execute("PRAGMA table_info(items)")] if old_table else []
-                for column, suffix in (("user_id", ".pre-accounts.bak"), ("icon_type", ".pre-icons.bak"),
-                                       ("daily_target_cents", ".pre-goals.bak")):
-                    if not old_table or column in old_columns:
+                old_user_table = source.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'"
+                ).fetchone()
+                old_user_columns = [r[1] for r in source.execute("PRAGMA table_info(users)")] if old_user_table else []
+                for needed, suffix in (
+                    (bool(old_table) and "user_id" not in old_columns, ".pre-accounts.bak"),
+                    (bool(old_table) and "icon_type" not in old_columns, ".pre-icons.bak"),
+                    (bool(old_table) and "daily_target_cents" not in old_columns, ".pre-goals.bak"),
+                    (bool(old_user_table) and ("avatar_key" not in old_user_columns or "auth_version" not in old_user_columns), ".pre-profile.bak"),
+                ):
+                    if not needed:
                         continue
                     backup_path = database_path.with_name(database_path.name + suffix)
                     if not backup_path.exists():
@@ -149,8 +160,17 @@ def create_app(test_config=None):
             if not db().in_transaction:
                 db().execute("BEGIN IMMEDIATE")
             db().execute("ALTER TABLE items ADD COLUMN daily_target_cents INTEGER CHECK (daily_target_cents > 0)")
+        user_columns = [r[1] for r in db().execute("PRAGMA table_info(users)")]
+        if "avatar_key" not in user_columns:
+            if not db().in_transaction:
+                db().execute("BEGIN IMMEDIATE")
+            db().execute("ALTER TABLE users ADD COLUMN avatar_key TEXT")
+        if "auth_version" not in user_columns:
+            if not db().in_transaction:
+                db().execute("BEGIN IMMEDIATE")
+            db().execute("ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0")
         db().execute("CREATE INDEX IF NOT EXISTS idx_items_user ON items(user_id)")
-        db().execute("PRAGMA user_version = 4")
+        db().execute("PRAGMA user_version = 5")
         db().commit()
 
     @app.errorhandler(InputError)
@@ -179,8 +199,9 @@ def create_app(test_config=None):
         if request.path.startswith("/api/auth/"):
             return None
         user_id = session.get("user_id")
-        user = db().execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone() if user_id else None
-        if not user:
+        user = db().execute("SELECT id, auth_version FROM users WHERE id = ?", (user_id,)).fetchone() if user_id else None
+        if not user or session.get("auth_version", 0) != user["auth_version"]:
+            session.clear()
             return jsonify(error="请先登录"), 401
         g.user_id = user["id"]
 
@@ -190,14 +211,15 @@ def create_app(test_config=None):
         return session["csrf_token"]
 
     def public_user(row):
-        return {"id": row["id"], "username": row["username"]}
+        return {"id": row["id"], "username": row["username"], "avatar_key": row["avatar_key"]}
 
     @app.get("/api/auth/me")
     def auth_me():
         user_id = session.get("user_id")
         user = db().execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone() if user_id else None
-        if user_id and not user:
+        if user_id and (not user or session.get("auth_version", 0) != user["auth_version"]):
             session.clear()
+            user = None
         return jsonify(user=public_user(user) if user else None, csrf_token=csrf_token())
 
     @app.post("/api/auth/register")
@@ -227,6 +249,7 @@ def create_app(test_config=None):
         session.clear()
         session["user_id"] = cursor.lastrowid
         user = db().execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        session["auth_version"] = user["auth_version"]
         return jsonify(user=public_user(user), csrf_token=csrf_token()), 201
 
     @app.post("/api/auth/login")
@@ -238,12 +261,57 @@ def create_app(test_config=None):
             return jsonify(error="用户名或密码不正确"), 401
         session.clear()
         session["user_id"] = user["id"]
+        session["auth_version"] = user["auth_version"]
         return jsonify(user=public_user(user), csrf_token=csrf_token())
 
     @app.post("/api/auth/logout")
     def auth_logout():
         session.clear()
         return "", 204
+
+    @app.put("/api/account/username")
+    def account_username():
+        data = body()
+        username = data.get("username")
+        if not isinstance(username, str) or not re.fullmatch(r"[\w]{3,32}", username.strip()):
+            raise InputError("用户名应为 3 至 32 个字母、数字、汉字或下划线")
+        username = username.strip()
+        user = db().execute("SELECT * FROM users WHERE id = ?", (g.user_id,)).fetchone()
+        if not isinstance(data.get("current_password"), str) or not check_password_hash(user["password_hash"], data["current_password"]):
+            raise InputError("当前密码不正确")
+        try:
+            db().execute("UPDATE users SET username = ?, username_key = ? WHERE id = ?",
+                         (username, username.casefold(), g.user_id))
+            db().commit()
+        except sqlite3.IntegrityError as exc:
+            db().rollback()
+            raise InputError("用户名已被使用") from exc
+        return jsonify(user=public_user(db().execute("SELECT * FROM users WHERE id = ?", (g.user_id,)).fetchone()))
+
+    @app.put("/api/account/password")
+    def account_password():
+        data = body()
+        user = db().execute("SELECT * FROM users WHERE id = ?", (g.user_id,)).fetchone()
+        if not isinstance(data.get("current_password"), str) or not check_password_hash(user["password_hash"], data["current_password"]):
+            raise InputError("当前密码不正确")
+        new_password = data.get("new_password")
+        if not isinstance(new_password, str) or not 8 <= len(new_password) <= 128:
+            raise InputError("新密码长度应为 8 至 128 个字符")
+        db().execute("UPDATE users SET password_hash = ?, auth_version = auth_version + 1 WHERE id = ?",
+                     (generate_password_hash(new_password), g.user_id))
+        db().commit()
+        session.clear()
+        return "", 204
+
+    @app.put("/api/account/avatar")
+    def account_avatar():
+        data = body()
+        avatar = data.get("avatar_key")
+        if "avatar_key" not in data or (avatar is not None and (not isinstance(avatar, str) or avatar not in AVATAR_KEYS)):
+            raise InputError("请选择有效的预设头像")
+        db().execute("UPDATE users SET avatar_key = ? WHERE id = ?", (avatar, g.user_id))
+        db().commit()
+        return jsonify(user=public_user(db().execute("SELECT * FROM users WHERE id = ?", (g.user_id,)).fetchone()))
 
     def body():
         data = request.get_json(silent=True)
@@ -374,9 +442,10 @@ def create_app(test_config=None):
 
     def signed_in_user():
         user_id = session.get("user_id")
-        user = db().execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone() if user_id else None
-        if user_id and not user:
+        user = db().execute("SELECT id, username, auth_version FROM users WHERE id = ?", (user_id,)).fetchone() if user_id else None
+        if user_id and (not user or session.get("auth_version", 0) != user["auth_version"]):
             session.clear()
+            user = None
         return user
 
     @app.get("/")

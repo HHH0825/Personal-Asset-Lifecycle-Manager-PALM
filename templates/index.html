@@ -14,6 +14,7 @@
         <button class="nav-link active" data-view="items"><span class="nav-index">01</span><span>物品档案</span></button>
         <button class="nav-link" data-view="dashboard"><span class="nav-index">02</span><span>数据概览</span></button>
         <button class="nav-link" data-view="review"><span class="nav-index">03</span><span>待复盘</span></button>
+        <button class="nav-link" data-view="account"><span class="nav-index">04</span><span>个人设置</span></button>
       </nav>
       <div class="sidebar-foot"><span>PALM / PERSONAL ARCHIVE</span><br>留存购买、使用与去向。</div>
     </aside>
@@ -21,7 +22,7 @@
     <main class="main-content">
       <header class="topbar">
         <div><span class="eyebrow">个人资产档案 / <span id="section-number">01</span></span><h1 id="page-title">我的物品</h1></div>
-        <div class="topbar-actions"><div class="account-controls"><span id="account-name"></span><button id="logout-btn" type="button" class="text-btn">退出登录</button></div><button class="primary-btn" id="add-item-btn"><span aria-hidden="true">＋</span> 添加物品</button></div>
+        <div class="topbar-actions"><div class="account-controls"><button id="account-entry" class="account-entry" type="button" data-view="account" aria-label="打开个人设置"><span id="account-avatar" class="avatar avatar-small" data-avatar="sprout" aria-hidden="true"><svg><use href="/static/avatars.svg#sprout"></use></svg></span><span id="account-name"></span></button><button id="logout-btn" type="button" class="text-btn">退出登录</button></div><button class="primary-btn" id="add-item-btn"><span aria-hidden="true">＋</span> 添加物品</button></div>
       </header>
 
       <section id="dashboard-view" class="view hidden">
@@ -75,6 +76,15 @@
         <p class="review-notice">这里的提示仅供核对：关键使用记录可能不完整。系统不会自动把物品改为闲置，也不会替你决定是否处置。</p>
         <section class="panel review-section"><div class="section-heading"><div><span class="eyebrow">01 / 待核对</span><h2>复盘清单</h2></div><span class="section-aside">手动闲置，或距最近记录 ≥ 90 天</span></div><div id="review-items"></div></section>
         <section class="panel review-section"><div class="section-heading"><div><span class="eyebrow">02 / 记录缺口</span><h2>使用情况未知</h2></div></div><p class="hint">以下使用中的物品没有使用记录，因此不参与 90 天判断。</p><div id="unknown-items"></div></section>
+      </section>
+
+      <section id="account-view" class="view hidden" aria-labelledby="account-heading">
+        <div class="account-intro"><div class="avatar avatar-large" id="profile-avatar" data-avatar="sprout" aria-hidden="true"><svg><use href="/static/avatars.svg#sprout"></use></svg></div><div><span class="eyebrow">YOUR LITTLE CORNER</span><h2 id="account-heading">我的个人设置</h2><p>换一个头像，也可以更新登录时使用的名字和密码。</p></div></div>
+        <div class="account-grid">
+          <section class="account-panel account-avatar-panel"><div class="section-heading"><div><span class="eyebrow">01 / 头像</span><h3>选一张喜欢的头像</h3></div></div><p class="hint">选好后点击保存；恢复默认会显示新芽。</p><form id="avatar-form"><div id="avatar-options" class="avatar-options" role="radiogroup" aria-label="预设头像"></div><button type="submit" class="primary-btn">保存头像</button><button id="avatar-reset" type="button" class="text-btn">恢复默认</button><p id="avatar-error" class="form-error hidden" role="alert"></p></form></section>
+          <div class="account-forms"><section class="account-panel"><div class="section-heading"><div><span class="eyebrow">02 / 名字</span><h3>更改用户名</h3></div></div><form id="username-form" class="account-form"><label class="auth-field"><span>新用户名</span><input id="new-username" name="username" autocomplete="username" minlength="3" maxlength="32" required></label><label class="auth-field"><span>当前密码</span><input name="current_password" type="password" autocomplete="current-password" required></label><p class="hint">用户名用于登录；更新后请使用新名字登录。</p><button type="submit" class="primary-btn">保存用户名</button><p id="username-error" class="form-error hidden" role="alert"></p></form></section>
+          <section class="account-panel"><div class="section-heading"><div><span class="eyebrow">03 / 安全</span><h3>更改密码</h3></div></div><form id="password-form" class="account-form"><label class="auth-field"><span>当前密码</span><input name="current_password" type="password" autocomplete="current-password" required></label><label class="auth-field"><span>新密码</span><input name="new_password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><label class="auth-field"><span>确认新密码</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><p class="hint">保存后，所有已登录页面都需要使用新密码重新登录。</p><button type="submit" class="primary-btn">更新密码</button><p id="password-error" class="form-error hidden" role="alert"></p></form></section></div>
+        </div>
       </section>
 
       <section id="detail-view" class="view hidden"><button id="back-btn" class="text-btn back-btn">← 返回物品清单</button><div id="detail-content"></div></section>

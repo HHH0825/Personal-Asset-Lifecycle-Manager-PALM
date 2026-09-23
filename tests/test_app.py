@@ -376,6 +376,74 @@ class PalmApiTest(unittest.TestCase):
         self.assertEqual(backup.read_bytes(), original_backup)
         self.assertEqual(self.client.get(f"/api/items/{item['id']}").json["daily_target"]["amount"], "2.00")
 
+    def test_personal_account_changes_and_session_revocation(self):
+        item = self.make_item(name="保留的物品")
+        second = self.app.test_client()
+        self.auth(second, "second", register=True)
+        another_session = self.app.test_client()
+        self.auth(another_session, "owner")
+
+        self.assertIsNone(self.client.get("/api/auth/me").json["user"]["avatar_key"])
+        for bad in ("unknown", 7, [], {}):
+            self.assertEqual(self.client.put("/api/account/avatar", json={"avatar_key": bad}).status_code, 400)
+        self.assertEqual(self.client.put("/api/account/avatar", json={}).status_code, 400)
+        self.assertEqual(self.client.put("/api/account/avatar", json={"avatar_key": "cat"}).json["user"]["avatar_key"], "cat")
+        self.assertEqual(another_session.get("/api/auth/me").json["user"]["avatar_key"], "cat")
+        self.assertIsNone(second.get("/api/auth/me").json["user"]["avatar_key"])
+        self.assertIsNone(self.client.put("/api/account/avatar", json={"avatar_key": None}).json["user"]["avatar_key"])
+
+        username_path = "/api/account/username"
+        password = "a-strong-password-123"
+        self.assertEqual(self.client.put(username_path, json={"username": "x", "current_password": password}).status_code, 400)
+        self.assertEqual(self.client.put(username_path, json={"username": "SECOND", "current_password": password}).status_code, 400)
+        self.assertEqual(self.client.put(username_path, json={"username": "renamed", "current_password": "bad"}).status_code, 400)
+        changed = self.client.put(username_path, json={"username": "  Renamed  ", "current_password": password})
+        self.assertEqual(changed.json["user"]["username"], "Renamed")
+        self.assertEqual(self.client.get(f"/api/items/{item['id']}").json["name"], "保留的物品")
+        self.assertEqual(second.get("/api/items").json, [])
+        guest = self.app.test_client()
+        token = guest.get("/api/auth/me").json["csrf_token"]
+        guest.environ_base["HTTP_X_CSRF_TOKEN"] = token
+        self.assertEqual(guest.post("/api/auth/login", json={"username": "owner", "password": password}).status_code, 401)
+        self.assertEqual(guest.post("/api/auth/login", json={"username": "renamed", "password": password}).status_code, 200)
+
+        password_path = "/api/account/password"
+        self.assertEqual(self.client.put(password_path, json={"current_password": "bad", "new_password": "another-password-123"}).status_code, 400)
+        self.assertEqual(self.client.put(password_path, json={"current_password": password, "new_password": "short"}).status_code, 400)
+        self.assertEqual(self.client.put(password_path, json={"current_password": password, "new_password": "another-password-123"}).status_code, 204)
+        self.assertIsNone(self.client.get("/api/auth/me").json["user"])
+        self.assertEqual(another_session.get("/api/items").status_code, 401)
+        refreshed = guest.get("/api/auth/me").json
+        self.assertIsNone(refreshed["user"])
+        guest.environ_base["HTTP_X_CSRF_TOKEN"] = refreshed["csrf_token"]
+        self.assertEqual(guest.post("/api/auth/login", json={"username": "Renamed", "password": password}).status_code, 401)
+        self.assertEqual(guest.post("/api/auth/login", json={"username": "Renamed", "password": "another-password-123"}).status_code, 200)
+        self.assertEqual(guest.get(f"/api/items/{item['id']}").status_code, 200)
+        self.assertEqual(second.get("/api/auth/me").json["user"]["username"], "second")
+        guest.environ_base["HTTP_X_CSRF_TOKEN"] = "wrong"
+        self.assertEqual(guest.put("/api/account/avatar", json={"avatar_key": "star"}).status_code, 403)
+
+    def test_profile_migration_backup_and_idempotency(self):
+        with tempfile.TemporaryDirectory() as folder:
+            database = str(Path(folder) / "old-profiles.sqlite3")
+            with closing(sqlite3.connect(database)) as connection:
+                connection.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT NOT NULL, username_key TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at TEXT)")
+                connection.execute("INSERT INTO users VALUES (1, 'legacy', 'legacy', ?, CURRENT_TIMESTAMP)",
+                                   (generate_password_hash("a-strong-password-123"),))
+                connection.commit()
+            migrated = create_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
+            backup = Path(database + ".pre-profile.bak")
+            original_backup = backup.read_bytes()
+            with closing(sqlite3.connect(backup)) as connection:
+                self.assertNotIn("avatar_key", [row[1] for row in connection.execute("PRAGMA table_info(users)")])
+            client = migrated.test_client()
+            self.auth(client, "legacy")
+            self.assertIsNone(client.get("/api/auth/me").json["user"]["avatar_key"])
+            self.assertEqual(client.put("/api/account/avatar", json={"avatar_key": "book"}).status_code, 200)
+            create_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
+            self.assertEqual(backup.read_bytes(), original_backup)
+            self.assertEqual(client.get("/api/auth/me").json["user"]["avatar_key"], "book")
+
 
 if __name__ == '__main__':
     unittest.main()

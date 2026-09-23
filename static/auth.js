@@ -16,7 +16,13 @@ async function connect() {
     if (state.user) { location.replace('/app'); return; }
     token = state.csrf_token;
     submit.disabled = false;
-    if (new URLSearchParams(location.search).has('expired')) showError('登录状态已失效，请重新登录。');
+    const params = new URLSearchParams(location.search);
+    if (params.has('expired')) showError('登录状态已失效，请重新登录。');
+    if (params.has('password_changed')) {
+      const notice = document.querySelector('#auth-notice');
+      notice.textContent = '密码已更新，请使用新密码重新登录。';
+      notice.classList.remove('hidden');
+    }
   } catch (_) { showError('暂时无法连接，请检查服务后重试。'); document.querySelector('#auth-retry').classList.remove('hidden'); }
 }
 form.addEventListener('submit', async (event) => {
