@@ -75,7 +75,7 @@ function clearAccount() {
   csrfToken = null;
   $('#search-input').value = '';
   $('#status-filter').value = 'all';
-  for (const selector of ['#items-list', '#detail-content', '#recent-items', '#stats-grid', '#category-chart', '#status-chart', '#monthly-chart', '#review-items', '#unknown-items']) $(selector).replaceChildren();
+  for (const selector of ['#items-list', '#detail-content', '#recent-items', '#stats-grid', '#category-chart', '#status-chart', '#monthly-chart', '#analysis-cards']) $(selector).replaceChildren();
   $('#account-name').textContent = '';
   $('#username-form').reset();
   $('#password-form').reset();
@@ -130,7 +130,7 @@ function showView(name) {
   if (name === 'account' && currentUser) setAccountUser(currentUser);
   for (const view of document.querySelectorAll('.view')) view.classList.toggle('hidden', view.id !== `${name}-view`);
   for (const link of document.querySelectorAll('.nav-link')) link.classList.toggle('active', link.dataset.view === name);
-  $('#page-title').textContent = ({ dashboard: '数据概览', items: '我的物品', review: '待复盘', detail: '物品详情', account: '个人设置' })[name];
+  $('#page-title').textContent = ({ dashboard: '数据概览', items: '我的物品', review: '智能分析中心', detail: '物品详情', account: '个人设置' })[name];
   $('#section-number').textContent = ({ items: '01', dashboard: '02', review: '03', detail: '01', account: '04' })[name];
   $('#add-item-btn').classList.toggle('hidden', name === 'account');
   window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
@@ -253,19 +253,12 @@ async function saveTarget(amount) {
     error.classList.remove('hidden');
   } finally { if (form.isConnected) form.querySelectorAll('button').forEach((button) => { button.disabled = false; }); }
 }
-function reviewRow(item, reason) {
-  const description = reason === 'manual_idle' ? '已手动标记闲置' : reason === 'no_recent_record'
-    ? `距最近一次记录的使用 ${item.days_since_last_recorded_use} 天` : '尚无使用记录，请按实际情况核对';
-  return `<article class="review-item" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}">${iconTile(item.icon_type, 'review-icon')}<div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${description}</small></div><div class="review-cost"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><span class="review-arrow" aria-hidden="true">↗</span></article>`;
-}
 function renderReview(insights) {
-  $('#review-count').textContent = `${insights.review_items.length} 件待核对`;
-  $('#review-items').innerHTML = insights.review_items.length
-    ? insights.review_items.map((item) => reviewRow(item, item.review_reason)).join('')
-    : empty('目前没有待复盘物品', '手动标记闲置，或录入关键使用记录后，这里会给出核对线索。');
-  $('#unknown-items').innerHTML = insights.unknown_usage_items.length
-    ? insights.unknown_usage_items.map((item) => reviewRow(item, 'unknown')).join('')
-    : empty('没有记录缺口', '使用中的物品都已有至少一条使用记录。');
+  const cards = insights.analysis_cards || [];
+  const marks = { digital_share: '◒', warranty_due: '◷', warranty_expired: '◷', manual_idle: '○', inactive: '◴', unknown_use: '?', repair_leader: '↗', purchase_yoy: '↗' };
+  $('#review-count').textContent = `${cards.length} 条发现`;
+  $('#analysis-cards').innerHTML = cards.length ? cards.map((card, index) => `<article class="analysis-card" data-kind="${escapeHtml(card.kind)}"><div class="analysis-card-top"><span class="analysis-card-index">${String(index + 1).padStart(2, '0')} / ${escapeHtml(card.label)}</span><span class="analysis-card-mark" aria-hidden="true">${marks[card.kind] || '✳'}</span></div><h3>${escapeHtml(card.headline)}</h3><p>${escapeHtml(card.explanation)}</p>${card.items?.length ? `<div class="analysis-card-links">${card.items.map((item) => `<button type="button" class="analysis-item-link" data-open-item="${item.id}" aria-label="查看${escapeHtml(item.name)}的物品详情">${iconTile(item.icon_type, 'analysis-item-icon')}<span>${escapeHtml(item.name)}</span><span aria-hidden="true">↗</span></button>`).join('')}</div>` : ''}</article>`).join('')
+    : `<div class="analysis-empty"><span aria-hidden="true">✳</span><h3>线索还在慢慢累积</h3><p>添加物品、填写保修日期或记下关键使用与维修记录后，这里会出现基于事实的观察。</p><button type="button" class="primary-btn" data-action="add-item">添加物品</button></div>`;
 }
 async function openItem(id) {
   const epoch = sessionEpoch;
@@ -275,7 +268,7 @@ async function openItem(id) {
   if (epoch !== sessionEpoch) return;
   currentItem = item;
   renderDetail();
-  $('#back-btn').textContent = detailReturnView === 'review' ? '← 返回待复盘' : '← 返回物品清单';
+  $('#back-btn').textContent = detailReturnView === 'review' ? '← 返回智能分析中心' : '← 返回物品清单';
   showView('detail');
 }
 function timeline(item) {
@@ -293,7 +286,7 @@ function renderDetail() {
   const preview = item.status === 'disposed' ? '' : `<section class="detail-section preview-section"><h3>处置前试算</h3><label class="preview-label" for="preview-proceeds">预计回收金额（元）</label><input id="preview-proceeds" type="number" min="0" max="999999999" step="0.01" inputmode="decimal" placeholder="例如 200.00"><div id="preview-result" class="preview-result" aria-live="polite">输入预计回收金额，查看处置后的净成本。</div><p class="hint">仅供参考，试算不会保存数据或改变物品状态。</p></section>`;
   $('#detail-content').innerHTML = `
     <div class="detail-hero">
-      <div class="detail-top">${iconTile(item.icon_type, 'item-icon')}<div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · 购买于 ${item.purchase_date}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div>
+      <div class="detail-top">${iconTile(item.icon_type, 'item-icon')}<div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · 购买于 ${item.purchase_date}</p><p class="detail-warranty">保修到期：${item.warranty_expires_on || '未填写'}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div>
       <div class="detail-metrics"><div><span>购买价格</span><strong>${yuan(item.purchase_price)}</strong></div><div><span>维修费用</span><strong>${yuan(item.maintenance_total)}</strong></div><div><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><div><span>${item.status === 'disposed' ? '曾持有' : '已持有'} · 使用记录 ${item.usage_count} 条</span><strong>${item.holding_days} 天</strong></div></div>
     </div>
     <div class="detail-grid"><div>${milestonesMarkup(item)}${targetMarkup(item)}<section class="detail-section"><div class="section-heading"><h3>生命周期时间线</h3></div>${timeline(item)}</section></div>
@@ -326,12 +319,12 @@ function updateDisposalPreview() {
   result.classList.add('has-values');
 }
 
-const field = (name, label, type = 'text', opts = {}) => `<label class="field ${opts.wide ? 'wide' : ''}"><span>${label}${opts.required ? ' *' : ''}</span>${type === 'textarea' ? `<textarea name="${name}" maxlength="${opts.max || 1000}" ${opts.required ? 'required' : ''}></textarea>` : type === 'select' ? `<select name="${name}">${opts.options.map(([value, text]) => `<option value="${value}">${text}</option>`).join('')}</select>` : `<input name="${name}" type="${type}" ${type === 'number' ? 'min="0" step="0.01"' : ''} ${type === 'date' ? `max="${todayLocal()}"` : ''} ${opts.max ? `maxlength="${opts.max}"` : ''} ${opts.required ? 'required' : ''}>`}</label>`;
+const field = (name, label, type = 'text', opts = {}) => `<label class="field ${opts.wide ? 'wide' : ''}"><span>${label}${opts.required ? ' *' : ''}</span>${type === 'textarea' ? `<textarea name="${name}" maxlength="${opts.max || 1000}" ${opts.required ? 'required' : ''}></textarea>` : type === 'select' ? `<select name="${name}">${opts.options.map(([value, text]) => `<option value="${value}">${text}</option>`).join('')}</select>` : `<input name="${name}" type="${type}" ${type === 'number' ? 'min="0" step="0.01"' : ''} ${type === 'date' && !opts.future ? `max="${todayLocal()}"` : ''} ${opts.max ? `maxlength="${opts.max}"` : ''} ${opts.required ? 'required' : ''}>`}</label>`;
 function iconChoices() {
   return `<fieldset class="icon-choice-field"><legend>物品类型</legend><div class="icon-choice-grid">${Object.entries(iconTypes).map(([key, label]) => `<label class="icon-option"><input type="radio" name="icon_type" value="${key}" required><span class="icon-option-face">${iconMarkup(key)}<span>${label}</span></span></label>`).join('')}</div></fieldset>`;
 }
 function formMarkup(kind, editing) {
-  if (kind === 'item') return field('name', '物品名称', 'text', { required: true, wide: true, max: 120 }) + iconChoices() + field('category', '分类', 'text', { required: true, max: 60 }) + field('purchase_date', '购买日期', 'date', { required: true }) + field('purchase_price', '购买价格（元）', 'number', { required: true }) + field('status', '当前状态', 'select', { options: editing?.status === 'disposed' ? [['disposed', '已处置']] : [['active', '使用中'], ['idle', '闲置']] }) + field('notes', '备注', 'textarea', { wide: true });
+  if (kind === 'item') return field('name', '物品名称', 'text', { required: true, wide: true, max: 120 }) + iconChoices() + field('category', '分类', 'text', { required: true, max: 60 }) + field('purchase_date', '购买日期', 'date', { required: true }) + field('warranty_expires_on', '保修到期日（可选）', 'date', { future: true }) + field('purchase_price', '购买价格（元）', 'number', { required: true }) + field('status', '当前状态', 'select', { options: editing?.status === 'disposed' ? [['disposed', '已处置']] : [['active', '使用中'], ['idle', '闲置']] }) + field('notes', '备注', 'textarea', { wide: true });
   if (kind === 'usage') return field('used_on', '使用日期', 'date', { required: true }) + field('notes', '使用备注', 'textarea', { wide: true });
   if (kind === 'maintenance') return field('maintained_on', '维修日期', 'date', { required: true }) + field('cost', '维修费用（元）', 'number', { required: true }) + field('description', '维修说明', 'textarea', { required: true, wide: true, max: 500 });
   return field('disposed_on', '处置日期', 'date', { required: true }) + field('method', '处置方式', 'select', { options: Object.entries(methodNames) }) + field('proceeds', '回收金额（元）', 'number', { required: true }) + field('notes', '备注', 'textarea', { wide: true });
@@ -349,7 +342,7 @@ function openForm(kind, record = null) {
   for (const input of form.querySelectorAll('[name]')) {
     if (input.type === 'radio') input.checked = input.value === defaults[input.name];
     else if (defaults[input.name] != null) input.value = defaults[input.name];
-    else if (input.type === 'date') input.value = todayLocal();
+    else if (input.type === 'date' && input.name !== 'warranty_expires_on') input.value = todayLocal();
   }
   $('#form-dialog').showModal();
 }

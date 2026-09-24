@@ -13,7 +13,7 @@
       <nav aria-label="主导航">
         <button class="nav-link active" data-view="items"><span class="nav-index">01</span><span>物品档案</span></button>
         <button class="nav-link" data-view="dashboard"><span class="nav-index">02</span><span>数据概览</span></button>
-        <button class="nav-link" data-view="review"><span class="nav-index">03</span><span>待复盘</span></button>
+        <button class="nav-link" data-view="review"><span class="nav-index">03</span><span>智能分析中心</span></button>
         <button class="nav-link" data-view="account"><span class="nav-index">04</span><span>个人设置</span></button>
       </nav>
       <div class="sidebar-foot"><span>PALM / PERSONAL ARCHIVE</span><br>留存购买、使用与去向。</div>
@@ -72,10 +72,10 @@
       </section>
 
       <section id="review-view" class="view hidden">
-        <div class="list-intro"><div><span class="eyebrow">物品档案 / 人工复盘</span><p>从闲置状态和最近的使用记录里，找出值得重新看看的一些物品。</p></div><span id="review-count" class="count-chip"></span></div>
-        <p class="review-notice">这里的提示仅供核对：关键使用记录可能不完整。系统不会自动把物品改为闲置，也不会替你决定是否处置。</p>
-        <section class="panel review-section"><div class="section-heading"><div><span class="eyebrow">01 / 待核对</span><h2>复盘清单</h2></div><span class="section-aside">手动闲置，或距最近记录 ≥ 90 天</span></div><div id="review-items"></div></section>
-        <section class="panel review-section"><div class="section-heading"><div><span class="eyebrow">02 / 记录缺口</span><h2>使用情况未知</h2></div></div><p class="hint">以下使用中的物品没有使用记录，因此不参与 90 天判断。</p><div id="unknown-items"></div></section>
+        <div class="analysis-intro"><div><span class="eyebrow">NOTES FROM YOUR ARCHIVE</span><h2>从记录里，<br>发现一点新线索。</h2><p>关于你的物品、保修、使用与花费，值得留意的事都在这里。</p></div><div class="analysis-stamp" aria-hidden="true"><span>PALM</span><strong>观<br>察</strong></div></div>
+        <div class="analysis-meta"><span class="analysis-rule-tag">基于规则生成 · 未接入 AI</span><span id="review-count" class="count-chip"></span></div>
+        <div id="analysis-cards" class="analysis-grid"></div>
+        <p class="analysis-disclaimer">分析依据已录入的资料与本机日期。使用记录可能不完整；提示只供核对，不会自动改变物品状态或决定是否处置。</p>
       </section>
 
       <section id="account-view" class="view hidden" aria-labelledby="account-heading">

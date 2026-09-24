@@ -1,0 +1,60 @@
+/* Hover feedback is confined to the overview; values and chart geometry stay intact. */
+@media (hover: hover) and (pointer: fine) {
+  #dashboard-view .stat-card:hover {
+    background: #edf2e8;
+    border-radius: 8px;
+  }
+  #dashboard-view .stat-card:hover .stat-value { color: #9a5d43; }
+
+  #dashboard-view .cash-month:hover {
+    background: #edf2e8;
+    border-radius: 6px 6px 0 0;
+    color: #254b3d;
+  }
+  #dashboard-view .cash-month:hover .cash-bar { filter: brightness(1.2) saturate(1.12); }
+
+  #dashboard-view .bar-row:hover,
+  #dashboard-view .status-row:hover {
+    background: #edf2e8;
+    border-radius: 5px;
+    box-shadow: 0 0 0 6px #edf2e8;
+    color: #254b3d;
+  }
+  #dashboard-view .bar-row:hover .bar-amount,
+  #dashboard-view .status-row:hover strong { color: #985b41; }
+  #dashboard-view .bar-row:hover .bar-fill,
+  #dashboard-view .status-row:hover .status-fill { filter: brightness(1.18) saturate(1.15); }
+
+  #dashboard-view .mini-item:hover {
+    background: #edf2e8;
+    border-radius: 6px;
+    box-shadow: 0 0 0 5px #edf2e8;
+  }
+  #dashboard-view .mini-item:hover .mini-price { color: #985b41; }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  #dashboard-view .stat-card,
+  #dashboard-view .cash-month,
+  #dashboard-view .bar-row,
+  #dashboard-view .status-row,
+  #dashboard-view .mini-item {
+    transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+  #dashboard-view .stat-value,
+  #dashboard-view .bar-amount,
+  #dashboard-view .status-row strong,
+  #dashboard-view .mini-price { transition: color 180ms ease; }
+  #dashboard-view .cash-bar,
+  #dashboard-view .bar-fill,
+  #dashboard-view .status-fill { transition: filter 180ms ease, transform 180ms ease; }
+  #dashboard-view .bar-track,
+  #dashboard-view .status-track,
+  #dashboard-view .mini-icon { transition: transform 180ms ease; }
+
+  #dashboard-view .stat-card:hover { transform: translateY(-3px); }
+  #dashboard-view .cash-month:hover .cash-bar { transform: translateY(-3px) scaleX(1.1); }
+  #dashboard-view .bar-row:hover .bar-track,
+  #dashboard-view .status-row:hover .status-track { transform: scaleY(1.5); }
+  #dashboard-view .mini-item:hover .mini-icon { transform: translateX(3px) rotate(-3deg); }
+}

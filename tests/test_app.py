@@ -167,6 +167,95 @@ class PalmApiTest(unittest.TestCase):
         self.assertEqual(disposed_detail["daily_purchase_cost"], "9.09")
         self.assertEqual(disposed_detail["last_recorded_use"], day(100))
 
+    def test_warranty_validation_edit_and_migration(self):
+        item = self.make_item(warranty_expires_on=day(-30))
+        path = f"/api/items/{item['id']}"
+        self.assertEqual(item["warranty_expires_on"], day(-30))
+        self.assertEqual(self.client.get("/api/items").json[0]["warranty_expires_on"], day(-30))
+        edit = {key: item[key] for key in ("name", "category", "purchase_date", "purchase_price", "status", "notes")}
+        self.assertEqual(self.client.put(path, json=edit).json["warranty_expires_on"], day(-30))
+        self.assertEqual(self.client.put(path, json={**edit, "purchase_date": day(-31)}).status_code, 400)
+        for invalid in (day(31), "2026-02-30", "2026-1-1", 123):
+            self.assertEqual(self.client.put(path, json={**edit, "warranty_expires_on": invalid}).status_code, 400)
+        self.assertIsNone(self.client.put(path, json={**edit, "warranty_expires_on": ""}).json["warranty_expires_on"])
+        self.assertEqual(self.client.put(path, json={**edit, "warranty_expires_on": day()}).json["warranty_expires_on"], day())
+        self.assertIsNone(self.client.put(path, json={**edit, "warranty_expires_on": None}).json["warranty_expires_on"])
+
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute("ALTER TABLE items DROP COLUMN warranty_expires_on")
+            connection.execute("PRAGMA user_version = 5")
+            connection.commit()
+        create_app({"TESTING": True, "DATABASE": self.database})
+        backup = Path(self.database + ".pre-warranty.bak")
+        original_backup = backup.read_bytes()
+        with closing(sqlite3.connect(backup)) as connection:
+            self.assertNotIn("warranty_expires_on", [row[1] for row in connection.execute("PRAGMA table_info(items)")])
+        self.assertIsNone(self.client.get(path).json["warranty_expires_on"])
+        create_app({"TESTING": True, "DATABASE": self.database})
+        self.assertEqual(backup.read_bytes(), original_backup)
+
+    def test_analysis_warranty_use_boundaries_and_isolation(self):
+        due_today = self.make_item(name="今天过保", warranty_expires_on=day())
+        due_30 = self.make_item(name="三十天后", warranty_expires_on=day(-30))
+        self.make_item(name="三十一天后", warranty_expires_on=day(-31))
+        expired = self.make_item(name="已经过保", warranty_expires_on=day(1))
+        disposed = self.make_item(name="已处置物品", warranty_expires_on=day())
+        self.client.post(f"/api/items/{disposed['id']}/disposal", json={"disposed_on": day(), "method": "sold", "proceeds": "0", "notes": ""})
+        idle = self.make_item(name="手动闲置", status="idle")
+        inactive = self.make_item(name="九十天未记录", purchase_date=day(120))
+        recent = self.make_item(name="八十九天未记录", purchase_date=day(120))
+        unknown = self.make_item(name="未记录使用")
+        self.client.post(f"/api/items/{inactive['id']}/usage", json={"used_on": day(90), "notes": ""})
+        self.client.post(f"/api/items/{recent['id']}/usage", json={"used_on": day(89), "notes": ""})
+        cards = self.client.get("/api/insights").json["analysis_cards"]
+        by_kind = {}
+        for card in cards:
+            by_kind.setdefault(card["kind"], []).append(card)
+        self.assertEqual({item["id"] for item in by_kind["warranty_due"][0]["items"]}, {due_today["id"], due_30["id"]})
+        self.assertEqual([item["id"] for item in by_kind["warranty_expired"][0]["items"]], [expired["id"]])
+        self.assertIn(idle["id"], {item["id"] for item in by_kind["manual_idle"][0]["items"]})
+        self.assertEqual([item["id"] for item in by_kind["inactive"][0]["items"]], [inactive["id"]])
+        self.assertIn(unknown["id"], {item["id"] for item in by_kind["unknown_use"][0]["items"]})
+        linked = {item["id"] for card in cards for item in card["items"]}
+        self.assertNotIn(disposed["id"], linked)
+        self.assertNotIn(recent["id"], linked)
+
+        second = self.app.test_client()
+        self.auth(second, "second", register=True)
+        self.assertEqual(second.get("/api/insights").json["analysis_cards"], [])
+        other = second.post("/api/items", json={"name": "乙的物品", "category": "其他", "purchase_date": day(),
+                                                   "purchase_price": "0", "status": "active", "warranty_expires_on": day()}).json
+        second_cards = second.get("/api/insights").json["analysis_cards"]
+        self.assertEqual({item["id"] for card in second_cards for item in card["items"]}, {other["id"]})
+
+    def test_analysis_cost_share_repairs_ties_and_year_comparison(self):
+        this_year = self.make_item(name="数码甲", icon_type="digital", purchase_date=day(), purchase_price="60.00")
+        other = self.make_item(name="其他乙", icon_type="other", purchase_date=day(), purchase_price="40.00")
+        for item in (this_year, other):
+            self.client.post(f"/api/items/{item['id']}/maintenance", json={"maintained_on": day(), "cost": "5.00", "description": "修理"})
+        cards = self.client.get("/api/insights").json["analysis_cards"]
+        digital = next(card for card in cards if card["kind"] == "digital_share")
+        self.assertIn("60%", digital["headline"])
+        repair = next(card for card in cards if card["kind"] == "repair_leader")
+        self.assertEqual({item["id"] for item in repair["items"]}, {this_year["id"], other["id"]})
+        self.assertIn("并列最高", repair["headline"])
+        yoy = next(card for card in cards if card["kind"] == "purchase_yoy")
+        self.assertIn("去年同期没有购置支出", yoy["headline"])
+
+        previous_end = date.today().replace(year=date.today().year - 1) if (date.today().month, date.today().day) != (2, 29) else date(date.today().year - 1, 2, 28)
+        prior = self.make_item(name="去年物品", purchase_date=previous_end.isoformat(), purchase_price="50.00", status="idle")
+        cards = self.client.get("/api/insights").json["analysis_cards"]
+        yoy = next(card for card in cards if card["kind"] == "purchase_yoy")
+        self.assertIn("增加 100%", yoy["headline"])
+        self.client.post(f"/api/items/{prior['id']}/disposal", json={"disposed_on": day(), "method": "sold", "proceeds": "0", "notes": ""})
+        cards = self.client.get("/api/insights").json["analysis_cards"]
+        self.assertIn("60%", next(card for card in cards if card["kind"] == "digital_share")["headline"])
+
+    def test_analysis_zero_current_value_and_empty_state(self):
+        self.assertEqual(self.client.get("/api/insights").json["analysis_cards"], [])
+        self.make_item(purchase_date=day(400), purchase_price="0.00", icon_type="digital")
+        self.assertNotIn("digital_share", {card["kind"] for card in self.client.get("/api/insights").json["analysis_cards"]})
+
     def test_authentication_and_user_isolation(self):
         owner_item = self.make_item(name="甲的物品")
         owner_id = owner_item["id"]

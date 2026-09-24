@@ -1,0 +1,54 @@
+#review-view { max-width: 1120px; }
+.analysis-intro {
+  position: relative; display: flex; justify-content: space-between; align-items: center;
+  gap: 28px; padding: 32px 38px; overflow: hidden; color: #f8f5ea;
+  background: #244b3b; border-radius: 10px; border: 1px solid #214534;
+  box-shadow: 0 7px 0 #e7e6da;
+}
+.analysis-intro::after {
+  content: ""; position: absolute; width: 300px; height: 300px; border: 1px solid #ffffff26;
+  border-radius: 50%; right: -108px; top: -155px; pointer-events: none;
+}
+.analysis-intro .eyebrow { color: #f6cda6; }
+.analysis-intro h2 { margin: 14px 0 12px; font: 600 clamp(29px, 3vw, 40px)/1.35 "Songti SC", SimSun, serif; letter-spacing: .03em; }
+.analysis-intro p { margin: 0; color: #d5e3d7; font-size: 13px; }
+.analysis-stamp { position: relative; flex: none; width: 100px; height: 120px; border: 1px solid #e8d5ad99; border-radius: 48px 48px 8px 8px; display: grid; place-content: center; text-align: center; transform: rotate(8deg); background: #ffffff0c; }
+.analysis-stamp span { font: 10px Georgia, serif; letter-spacing: .2em; color: #e7d8b1; }
+.analysis-stamp strong { margin-top: 8px; color: #fff2d8; font: 600 24px/1.15 "Songti SC", SimSun, serif; letter-spacing: .2em; }
+.analysis-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 31px 0 18px; }
+.analysis-rule-tag { color: #365b46; font-size: 12px; font-weight: 700; letter-spacing: .05em; }
+.analysis-rule-tag::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 9px; border-radius: 50%; background: #b87e59; vertical-align: 1px; }
+.analysis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; align-items: stretch; }
+.analysis-card { min-width: 0; min-height: 240px; display: flex; flex-direction: column; padding: 24px 26px 22px; border: 1px solid #d8ddd0; border-radius: 9px; background: #fffdf7; box-shadow: 0 3px 0 #e8e7db; }
+.analysis-card[data-kind="warranty_due"], .analysis-card[data-kind="warranty_expired"] { background: #fcf6ec; border-color: #ead8c5; }
+.analysis-card[data-kind="digital_share"], .analysis-card[data-kind="purchase_yoy"] { background: #f6f8f0; }
+.analysis-card-top { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.analysis-card-index { color: #9b6a4d; font-size: 10px; font-weight: 700; letter-spacing: .15em; }
+.analysis-card-mark { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 1px solid #d7dfd1; border-radius: 50%; color: #46634e; font: 21px/1 Georgia, serif; }
+.analysis-card h3 { margin: 12px 0 10px; color: #254638; font: 600 clamp(19px, 2vw, 23px)/1.5 "Songti SC", SimSun, serif; overflow-wrap: anywhere; }
+.analysis-card p { margin: 0 0 17px; color: #657469; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.analysis-card-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 14px; border-top: 1px solid #e2e5d9; }
+.analysis-item-link { max-width: 100%; display: inline-flex; align-items: center; gap: 7px; min-height: 33px; padding: 4px 9px 4px 5px; border: 1px solid #d6ded2; border-radius: 20px; background: #ffffffa8; color: #355b44; font-size: 11px; text-align: left; }
+.analysis-item-link span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+.analysis-item-link:hover { background: #e5eee3; border-color: #99b19a; }
+.analysis-item-icon { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: #edf1e8; }
+.analysis-item-icon .type-icon { width: 17px; height: 17px; }
+.analysis-disclaimer { margin: 25px 0 0; padding: 14px 0; border-top: 1px solid #d7ddd1; color: #718072; font-size: 12px; line-height: 1.8; }
+.analysis-empty { grid-column: 1 / -1; padding: 62px 28px; border: 1px dashed #bfcdbd; border-radius: 9px; background: #fffdf7; text-align: center; }
+.analysis-empty > span { display: block; color: #b6815d; font: 40px Georgia, serif; }
+.analysis-empty h3 { margin: 12px 0 8px; color: #2e503d; font: 600 24px "Songti SC", SimSun, serif; }
+.analysis-empty p { max-width: 470px; margin: 0 auto 20px; color: #6c7a6d; font-size: 13px; }
+.detail-main .detail-warranty { margin-top: 8px; color: #6e7a69; font-size: 12px; }
+@media (hover: hover) and (pointer: fine) {
+  .analysis-card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
+  .analysis-card:hover { transform: translateY(-3px); border-color: #a9bba7; box-shadow: 0 7px 0 #e7e7d9; }
+}
+@media (max-width: 860px) { .analysis-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .analysis-intro { padding: 26px 23px; }
+  .analysis-intro h2 { font-size: 29px; }
+  .analysis-intro p { font-size: 12px; }
+  .analysis-stamp { display: none; }
+  .analysis-card { min-height: 0; padding: 21px 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .analysis-card { transition: none; } .analysis-card:hover { transform: none; } }
