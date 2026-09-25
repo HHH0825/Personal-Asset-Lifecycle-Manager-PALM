@@ -1,0 +1,95 @@
+/* Only the public landing page uses these scroll effects. Content stays visible without JavaScript. */
+.landing-page .chapter-strip i {
+  display: inline-block;
+  width: 22px;
+  height: 1px;
+  margin: 0 12px;
+  vertical-align: middle;
+  background: #8fa487;
+  font-size: 0;
+  transform-origin: left center;
+}
+
+.landing-page.landing-motion .chapter-strip i {
+  transition: transform .55s ease;
+}
+.landing-page.landing-motion .chapter-strip:not(.reveal-visible) i {
+  transform: scaleX(0);
+}
+.landing-page.landing-motion .chapter-strip i:nth-of-type(2) { transition-delay: .1s; }
+.landing-page.landing-motion .chapter-strip i:nth-of-type(3) { transition-delay: .2s; }
+.landing-page.landing-motion .chapter-strip i:nth-of-type(4) { transition-delay: .3s; }
+
+.landing-page.landing-motion .landing-heading.reveal-visible,
+.landing-page.landing-motion .feature-card.reveal-visible,
+.landing-page.landing-motion .demo-copy.reveal-visible,
+.landing-page.landing-motion .demo-notebook.reveal-visible,
+.landing-page.landing-motion .invite-doodle.reveal-visible,
+.landing-page.landing-motion .landing-invite h2.reveal-visible,
+.landing-page.landing-motion .landing-invite .primary-btn.reveal-visible {
+  transition: opacity .55s ease, transform .55s cubic-bezier(.2,.75,.25,1);
+}
+.landing-page.landing-motion .landing-heading:not(.reveal-visible),
+.landing-page.landing-motion .landing-invite h2:not(.reveal-visible),
+.landing-page.landing-motion .landing-invite .primary-btn:not(.reveal-visible) {
+  opacity: 0;
+  transform: translate3d(0, 20px, 0);
+}
+.landing-page.landing-motion .feature-card:nth-child(1) { --paper-tilt: -.6deg; transition-delay: 0s; }
+.landing-page.landing-motion .feature-card:nth-child(2) { --paper-tilt: .45deg; transition-delay: .1s; }
+.landing-page.landing-motion .feature-card:nth-child(3) { --paper-tilt: -.35deg; transition-delay: .2s; }
+.landing-page.landing-motion .feature-card.reveal-visible { transform: rotate(var(--paper-tilt)); }
+.landing-page.landing-motion .feature-card:not(.reveal-visible) {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0) rotate(-1.5deg);
+}
+.landing-page.landing-motion .demo-copy:not(.reveal-visible) {
+  opacity: 0;
+  transform: translate3d(-24px, 0, 0);
+}
+.landing-page.landing-motion .demo-notebook:not(.reveal-visible) {
+  opacity: 0;
+  transform: translate3d(24px, 0, 0);
+}
+.landing-page.landing-motion .invite-doodle:not(.reveal-visible) {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0) scale(.84) rotate(-6deg);
+}
+
+@media (min-width: 901px) {
+  .landing-page.landing-motion .scene-main {
+    transform: translate3d(0, var(--scene-main-y, 0px), 0) rotate(-6deg);
+  }
+  .landing-page.landing-motion .scene-stamp {
+    transform: translate3d(0, var(--scene-stamp-y, 0px), 0) rotate(12deg);
+  }
+  .landing-page.landing-motion .scene-small {
+    transform: translate3d(0, var(--scene-small-y, 0px), 0) rotate(4deg);
+  }
+}
+@media (max-width: 900px) {
+  .landing-page.landing-motion .demo-copy:not(.reveal-visible),
+  .landing-page.landing-motion .demo-notebook:not(.reveal-visible) {
+    transform: translate3d(0, 14px, 0);
+  }
+}
+@media (max-width: 650px) {
+  .landing-page .chapter-strip i { width: 15px; margin: 0 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-page.landing-motion .chapter-strip i,
+  .landing-page.landing-motion .landing-heading,
+  .landing-page.landing-motion .feature-card,
+  .landing-page.landing-motion .demo-copy,
+  .landing-page.landing-motion .demo-notebook,
+  .landing-page.landing-motion .invite-doodle,
+  .landing-page.landing-motion .landing-invite h2,
+  .landing-page.landing-motion .landing-invite .primary-btn {
+    opacity: 1;
+    transition: none;
+    transform: none;
+  }
+  .landing-page.landing-motion .scene-main { transform: rotate(-6deg); }
+  .landing-page.landing-motion .scene-stamp { transform: rotate(12deg); }
+  .landing-page.landing-motion .scene-small { transform: rotate(4deg); }
+}

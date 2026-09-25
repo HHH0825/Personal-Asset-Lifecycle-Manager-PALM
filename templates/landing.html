@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% from '_macros.html' import brand, icon %}
-{% block scripts %}<script src="/static/landing.js" defer></script>{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="/static/landing-motion.css"><script src="/static/landing.js" defer></script>{% endblock %}
 {% block body_class %}landing-page{% endblock %}
 {% block content %}
 <header class="public-header page-width">
@@ -18,7 +18,7 @@
       <div class="scene-label">好好使用，慢慢相伴 <span aria-hidden="true">↗</span></div>
     </div>
   </section>
-  <div class="chapter-strip"><div class="page-width"><span>让物品有迹可循</span><span>购入 <i>→</i> 使用 <i>→</i> 维修 <i>→</i> 闲置 <i>→</i> 去向</span><span aria-hidden="true">✳</span></div></div>
+  <div class="chapter-strip"><div class="page-width"><span>让物品有迹可循</span><span>购入 <i aria-hidden="true">→</i> 使用 <i aria-hidden="true">→</i> 维修 <i aria-hidden="true">→</i> 闲置 <i aria-hidden="true">→</i> 去向</span><span aria-hidden="true">✳</span></div></div>
   <section id="features" class="feature-section page-width">
     <div class="landing-heading"><div><span class="eyebrow">01 / 关于你的物品</span><h2>收好物品，也收好日常。</h2></div><p>从一笔购买开始，<br>慢慢写成一份有温度的档案。</p></div>
     <div class="feature-grid">
