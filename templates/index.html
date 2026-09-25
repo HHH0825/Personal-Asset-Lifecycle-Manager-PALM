@@ -69,6 +69,7 @@
         <div class="toolbar">
           <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="搜索名称或分类" aria-label="搜索名称或分类"></label>
           <select id="status-filter" aria-label="筛选状态"><option value="all">全部状态</option><option value="active">使用中</option><option value="idle">闲置</option><option value="disposed">已处置</option></select>
+          <select id="sort-order" aria-label="物品排序"><option value="newest">最新添加</option><option value="holding_desc">持有时间最长</option><option value="holding_asc">持有时间最短</option><option value="price_desc">购买价格最高</option><option value="price_asc">购买价格最低</option><option value="daily_purchase_asc">购买价每天最低</option><option value="daily_net_asc">净成本每天最低</option></select>
         </div>
         <div id="items-list" class="items-list"></div>
       </section>

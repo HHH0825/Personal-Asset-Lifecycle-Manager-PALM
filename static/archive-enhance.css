@@ -1,0 +1,27 @@
+.archive-page .item-card { cursor: default; }
+.archive-page .item-card:focus-within { border-color: #a4b895; }
+.archive-page .item-card-open { position: absolute; inset: 0; z-index: 1; width: 100%; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.archive-page .item-card-open:focus-visible { outline: 3px solid #a85c3e; outline-offset: 3px; }
+.archive-page .item-card-actions { position: relative; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding-top: 13px; border-top: 1px dashed #dce3d9; }
+.archive-page .item-card-actions .small-btn { min-height: 34px; padding: 7px 11px; }
+.archive-page .item-card-actions .quick-use-btn { color: #355d43; border-color: #b9cab4; background: #edf3e9; }
+.archive-page .item-card-actions .quick-use-btn:disabled { color: #718271; background: #f1f3ec; cursor: default; }
+.archive-page .item-card-actions .pin-btn[aria-pressed="true"] { color: #885c39; border-color: #d9c3a9; background: #f6ebdc; }
+.archive-page .item-photo { display: block; flex: none; object-fit: cover; border-radius: 10px; border: 1px solid #d3dccc; background: #e9eee4; }
+.archive-page .mini-icon.item-photo { width: 34px; height: 34px; }
+.archive-page .detail-top .item-photo { width: 50px; height: 50px; }
+.archive-page .detail-photo-large { display: block; width: 100%; max-height: 400px; object-fit: contain; border-radius: 9px; background: #e9e8df; }
+.archive-page .photo-upload-field { grid-column: 1 / -1; display: flex; align-items: start; gap: 15px; padding: 12px; border: 1px dashed #c8d5c1; border-radius: 9px; background: #fafbf5; }
+.archive-page .photo-upload-field .field { flex: 1; min-width: 0; }
+.archive-page .photo-upload-field input[type="file"] { width: 100%; max-width: 100%; padding: 9px; }
+.archive-page .photo-upload-field small { display: block; color: #71806e; line-height: 1.5; }
+.archive-page .photo-preview-wrap { width: 88px; flex: none; }
+.archive-page .item-photo-preview { width: 88px; height: 88px; object-fit: cover; border-radius: 7px; border: 1px solid #ced9ca; }
+.archive-page .photo-remove { display: flex; gap: 5px; align-items: center; margin-top: 5px; font-size: 11px; color: #755c51; }
+.archive-page .toast-action { margin-left: 9px; padding: 5px 9px; border: 1px solid #c6dbc4; border-radius: 5px; background: #f6f5e9; color: #294b37; cursor: pointer; }
+@media (max-width: 650px) {
+  .archive-page .item-card-actions { gap: 7px; }
+  .archive-page .item-card-actions .small-btn { flex: 1; white-space: nowrap; }
+  .archive-page .photo-upload-field { flex-wrap: wrap; }
+  .archive-page .photo-preview-wrap { width: 100%; }
+}

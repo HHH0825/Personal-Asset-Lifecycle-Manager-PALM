@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from contextlib import closing
 from pathlib import Path
+from io import BytesIO
 import hmac
 import os
 import re
@@ -11,13 +12,16 @@ import secrets
 import sqlite3
 import tempfile
 
-from flask import Flask, g, jsonify, redirect, render_template, request, session
+from flask import Flask, g, jsonify, redirect, render_template, request, send_from_directory, session
+from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.security import check_password_hash, generate_password_hash
 from journey import item_journey
 
 
 ICON_TYPES = frozenset(("digital", "home", "daily", "clothing", "books", "mobility", "sports", "tools", "other"))
 AVATAR_KEYS = frozenset(("sprout", "cat", "book", "sun", "bike", "star"))
+PHOTO_MAX_BYTES = 5 * 1024 * 1024
+Image.MAX_IMAGE_PIXELS = 24_000_000
 
 
 SCHEMA = """
@@ -41,6 +45,8 @@ CREATE TABLE IF NOT EXISTS items (
     warranty_expires_on TEXT,
     purchase_cents INTEGER NOT NULL CHECK (purchase_cents >= 0),
     daily_target_cents INTEGER CHECK (daily_target_cents > 0),
+    photo_key TEXT,
+    is_pinned INTEGER NOT NULL DEFAULT 0 CHECK (is_pinned IN (0, 1)),
     notes TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'idle', 'disposed')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -85,6 +91,7 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
     Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
+    app.config.setdefault("PHOTO_DIR", str(Path(app.config["DATABASE"]).parent / "uploads" / "items"))
     if not app.config.get("SECRET_KEY"):
         key_path = Path(app.instance_path) / "session.key"
         key_path.parent.mkdir(parents=True, exist_ok=True)
@@ -126,6 +133,7 @@ def create_app(test_config=None):
                     (bool(old_table) and "icon_type" not in old_columns, ".pre-icons.bak"),
                     (bool(old_table) and "daily_target_cents" not in old_columns, ".pre-goals.bak"),
                     (bool(old_table) and "warranty_expires_on" not in old_columns, ".pre-warranty.bak"),
+                    (bool(old_table) and ("photo_key" not in old_columns or "is_pinned" not in old_columns), ".pre-photos-pins.bak"),
                     (bool(old_user_table) and ("avatar_key" not in old_user_columns or "auth_version" not in old_user_columns), ".pre-profile.bak"),
                 ):
                     if not needed:
@@ -166,6 +174,14 @@ def create_app(test_config=None):
             if not db().in_transaction:
                 db().execute("BEGIN IMMEDIATE")
             db().execute("ALTER TABLE items ADD COLUMN warranty_expires_on TEXT")
+        if "photo_key" not in columns:
+            if not db().in_transaction:
+                db().execute("BEGIN IMMEDIATE")
+            db().execute("ALTER TABLE items ADD COLUMN photo_key TEXT")
+        if "is_pinned" not in columns:
+            if not db().in_transaction:
+                db().execute("BEGIN IMMEDIATE")
+            db().execute("ALTER TABLE items ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0 CHECK (is_pinned IN (0, 1))")
         user_columns = [r[1] for r in db().execute("PRAGMA table_info(users)")]
         if "avatar_key" not in user_columns:
             if not db().in_transaction:
@@ -176,7 +192,7 @@ def create_app(test_config=None):
                 db().execute("BEGIN IMMEDIATE")
             db().execute("ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0")
         db().execute("CREATE INDEX IF NOT EXISTS idx_items_user ON items(user_id)")
-        db().execute("PRAGMA user_version = 6")
+        db().execute("PRAGMA user_version = 7")
         db().commit()
 
     @app.errorhandler(InputError)
@@ -414,6 +430,10 @@ def create_app(test_config=None):
         usage_summary = db().execute(
             "SELECT COUNT(*) AS count, MAX(used_on) AS last_used_on FROM usage_records WHERE item_id = ?", (item_id,)
         ).fetchone()
+        used_today = db().execute(
+            "SELECT 1 FROM usage_records WHERE item_id = ? AND used_on = ? LIMIT 1",
+            (item_id, date.today().isoformat()),
+        ).fetchone() is not None
         disposal = db().execute("SELECT * FROM disposal_records WHERE item_id = ?", (item_id,)).fetchone()
         end = date.fromisoformat(disposal["disposed_on"]) if disposal else date.today()
         holding_days = (end - date.fromisoformat(row["purchase_date"])).days
@@ -422,6 +442,8 @@ def create_app(test_config=None):
             "id": item_id, "name": row["name"], "category": row["category"], "icon_type": row["icon_type"],
             "purchase_date": row["purchase_date"], "purchase_price": money(row["purchase_cents"]),
             "warranty_expires_on": row["warranty_expires_on"],
+            "photo_url": f"/api/items/{item_id}/photo" if row["photo_key"] else None,
+            "is_pinned": bool(row["is_pinned"]), "used_today": used_today,
             "notes": row["notes"], "status": row["status"],
             "maintenance_total": money(maintenance_cents), "usage_count": usage_summary["count"],
             "last_recorded_use": usage_summary["last_used_on"],
@@ -537,8 +559,12 @@ def create_app(test_config=None):
         if request.method == "GET":
             return jsonify(item_payload(row, True))
         if request.method == "DELETE":
+            db().execute("BEGIN IMMEDIATE")
+            row = item_row(item_id)
+            photo_key = row["photo_key"]
             db().execute("DELETE FROM items WHERE id = ?", (item_id,))
             db().commit()
+            remove_photo_file(photo_key)
             return "", 204
         data = body()
         name = value(data, "name", "物品名称")
@@ -559,6 +585,106 @@ def create_app(test_config=None):
         )
         db().commit()
         return jsonify(item_payload(item_row(item_id), True))
+
+    def remove_photo_file(photo_key):
+        if not photo_key:
+            return
+        try:
+            (Path(app.config["PHOTO_DIR"]) / photo_key).unlink(missing_ok=True)
+        except OSError:
+            app.logger.warning("无法清理旧物品照片：%s", photo_key)
+
+    def normalized_photo(upload):
+        if not upload or not upload.filename:
+            raise InputError("请选择照片")
+        raw = upload.stream.read(PHOTO_MAX_BYTES + 1)
+        if len(raw) > PHOTO_MAX_BYTES:
+            raise InputError("照片不能超过 5 MB")
+        try:
+            with Image.open(BytesIO(raw)) as source:
+                if source.format not in ("JPEG", "PNG", "WEBP"):
+                    raise InputError("照片只支持 JPEG、PNG 或 WebP")
+                if source.width * source.height > Image.MAX_IMAGE_PIXELS:
+                    raise InputError("照片尺寸过大")
+                photo = ImageOps.exif_transpose(source)
+                photo.load()
+                photo.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+                rgba = photo.convert("RGBA")
+                canvas = Image.new("RGB", rgba.size, "#f7f4ec")
+                canvas.paste(rgba, mask=rgba.getchannel("A"))
+                output = BytesIO()
+                canvas.save(output, "JPEG", quality=85, optimize=True)
+                return output.getvalue()
+        except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
+            raise InputError("照片文件无效，请换一张 JPEG、PNG 或 WebP 图片") from exc
+
+    @app.route("/api/items/<int:item_id>/photo", methods=["GET", "POST", "DELETE"])
+    def item_photo(item_id):
+        row = item_row(item_id)
+        if request.method == "GET":
+            if not row["photo_key"]:
+                from flask import abort
+                abort(404)
+            return send_from_directory(app.config["PHOTO_DIR"], row["photo_key"], mimetype="image/jpeg")
+        if request.method == "DELETE":
+            db().execute("BEGIN IMMEDIATE")
+            row = item_row(item_id)
+            db().execute("UPDATE items SET photo_key = NULL WHERE id = ?", (item_id,))
+            db().commit()
+            remove_photo_file(row["photo_key"])
+            return "", 204
+
+        encoded = normalized_photo(request.files.get("photo"))
+        folder = Path(app.config["PHOTO_DIR"])
+        folder.mkdir(parents=True, exist_ok=True)
+        new_key = secrets.token_hex(16) + ".jpg"
+        descriptor, temporary = tempfile.mkstemp(prefix="palm-photo-", suffix=".tmp", dir=folder)
+        new_file = folder / new_key
+        try:
+            with os.fdopen(descriptor, "wb") as output:
+                output.write(encoded)
+            os.replace(temporary, new_file)
+            db().execute("BEGIN IMMEDIATE")
+            old_key = item_row(item_id)["photo_key"]
+            db().execute("UPDATE items SET photo_key = ? WHERE id = ?", (new_key, item_id))
+            db().commit()
+        except Exception:
+            db().rollback()
+            Path(temporary).unlink(missing_ok=True)
+            new_file.unlink(missing_ok=True)
+            raise
+        remove_photo_file(old_key)
+        return jsonify(item_payload(item_row(item_id), True))
+
+    @app.put("/api/items/<int:item_id>/pin")
+    def pin_item(item_id):
+        item_row(item_id)
+        data = body()
+        if not isinstance(data.get("is_pinned"), bool):
+            raise InputError("置顶状态必须为 true 或 false")
+        db().execute("UPDATE items SET is_pinned = ? WHERE id = ?", (int(data["is_pinned"]), item_id))
+        db().commit()
+        return jsonify(item_payload(item_row(item_id)))
+
+    @app.post("/api/items/<int:item_id>/usage/today")
+    def quick_usage(item_id):
+        db().execute("BEGIN IMMEDIATE")
+        item = item_row(item_id)
+        if item["status"] == "disposed":
+            raise InputError("已处置物品不能记录使用")
+        today = date.today().isoformat()
+        record = db().execute(
+            "SELECT * FROM usage_records WHERE item_id = ? AND used_on = ? ORDER BY id DESC LIMIT 1",
+            (item_id, today),
+        ).fetchone()
+        created = record is None
+        if created:
+            cursor = db().execute(
+                "INSERT INTO usage_records (item_id, used_on, notes) VALUES (?, ?, '')", (item_id, today)
+            )
+            record = db().execute("SELECT * FROM usage_records WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        db().commit()
+        return jsonify(record=dict(record), created=created), 201 if created else 200
 
     def event_data(kind, data):
         if kind == "usage":

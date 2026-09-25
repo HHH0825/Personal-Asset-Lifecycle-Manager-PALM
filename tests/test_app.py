@@ -1,12 +1,17 @@
 import tempfile
 import unittest
 import sqlite3
+from io import BytesIO
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+from unittest.mock import patch
 from contextlib import closing
 from datetime import date, timedelta
 from pathlib import Path
 
 from app import create_app
 from werkzeug.security import generate_password_hash
+from PIL import Image
 
 
 def day(offset=0):
@@ -41,6 +46,111 @@ class PalmApiTest(unittest.TestCase):
         response = self.client.post("/api/items", json=data)
         self.assertEqual(response.status_code, 201, response.json)
         return response.json
+
+    def photo_bytes(self, color="red"):
+        output = BytesIO()
+        Image.new("RGB", (80, 60), color).save(output, "PNG")
+        return output.getvalue()
+
+    def test_photo_upload_replace_delete_and_account_isolation(self):
+        item = self.make_item()
+        path = f"/api/items/{item['id']}/photo"
+        first = self.client.post(path, data={"photo": (BytesIO(self.photo_bytes()), "first.png")})
+        self.assertEqual(first.status_code, 200, first.json)
+        self.assertEqual(first.json["photo_url"], path)
+        photo_response = self.client.get(path)
+        self.assertEqual(photo_response.mimetype, "image/jpeg")
+        photo_response.close()
+        folder = Path(self.app.config["PHOTO_DIR"])
+        self.assertEqual(len(list(folder.iterdir())), 1)
+        other = self.app.test_client()
+        self.auth(other, "other", register=True)
+        self.assertEqual(other.get(path).status_code, 404)
+        self.assertEqual(other.post(path, data={"photo": (BytesIO(self.photo_bytes()), "x.png")}).status_code, 404)
+        self.assertEqual(other.delete(path).status_code, 404)
+        replaced = self.client.post(path, data={"photo": (BytesIO(self.photo_bytes("blue")), "new.png")})
+        self.assertEqual(replaced.status_code, 200)
+        self.assertEqual(len(list(folder.iterdir())), 1)
+        self.assertEqual(self.client.delete(path).status_code, 204)
+        self.assertIsNone(self.client.get(f"/api/items/{item['id']}").json["photo_url"])
+        self.assertEqual(self.client.get(path).status_code, 404)
+        self.assertEqual(list(folder.iterdir()), [])
+
+    def test_photo_validation_and_item_delete_cleanup(self):
+        item = self.make_item()
+        path = f"/api/items/{item['id']}/photo"
+        self.assertEqual(self.client.post(path, data={"photo": (BytesIO(b"invalid"), "bad.png")}).status_code, 400)
+        with patch("app.PHOTO_MAX_BYTES", 100):
+            self.assertEqual(self.client.post(path, data={"photo": (BytesIO(b"x" * 101), "huge.png")}).status_code, 400)
+        self.assertIsNone(self.client.get(f"/api/items/{item['id']}").json["photo_url"])
+        self.assertEqual(self.client.post(path, data={"photo": (BytesIO(self.photo_bytes()), "good.png")}).status_code, 200)
+        self.assertEqual(self.client.delete(f"/api/items/{item['id']}").status_code, 204)
+        self.assertEqual(list(Path(self.app.config["PHOTO_DIR"]).iterdir()), [])
+
+    def test_quick_usage_idempotent_and_pin_persists(self):
+        item = self.make_item(status="idle")
+        item_id = item["id"]
+        path = f"/api/items/{item_id}/usage/today"
+        first = self.client.post(path)
+        second = self.client.post(path)
+        self.assertEqual((first.status_code, first.json["created"]), (201, True))
+        self.assertEqual((second.status_code, second.json["created"]), (200, False))
+        self.assertEqual(first.json["record"]["id"], second.json["record"]["id"])
+        self.assertEqual(self.client.get(f"/api/items/{item_id}").json["usage_count"], 1)
+        self.assertEqual(self.client.get(f"/api/items/{item_id}").json["status"], "idle")
+        self.assertEqual(self.client.post(f"/api/items/{item_id}/usage", json={"used_on": day(), "notes": "手动补记"}).status_code, 201)
+        self.assertEqual(self.client.post(path).json["record"]["notes"], "手动补记")
+        self.assertEqual(self.client.put(f"/api/items/{item_id}/pin", json={"is_pinned": True}).json["is_pinned"], True)
+        self.assertEqual(self.client.put(f"/api/items/{item_id}/pin", json={"is_pinned": 1}).status_code, 400)
+        restarted = create_app({"TESTING": True, "DATABASE": self.database}).test_client()
+        self.auth(restarted, "owner")
+        self.assertTrue(restarted.get(f"/api/items/{item_id}").json["is_pinned"])
+        self.assertTrue(restarted.get(f"/api/items/{item_id}").json["used_today"])
+        other = self.app.test_client()
+        self.auth(other, "other", register=True)
+        self.assertEqual(other.post(path).status_code, 404)
+        self.assertEqual(other.put(f"/api/items/{item_id}/pin", json={"is_pinned": True}).status_code, 404)
+        disposal = self.client.post(f"/api/items/{item_id}/disposal", json={"disposed_on": day(), "method": "sold", "proceeds": "0", "notes": ""})
+        self.assertEqual(disposal.status_code, 201)
+        self.assertEqual(self.client.post(path).status_code, 400)
+
+    def test_photo_pin_migration_backup(self):
+        item = self.make_item(name="旧物品")
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute("ALTER TABLE items DROP COLUMN photo_key")
+            connection.execute("ALTER TABLE items DROP COLUMN is_pinned")
+            connection.execute("PRAGMA user_version = 6")
+            connection.commit()
+        create_app({"TESTING": True, "DATABASE": self.database})
+        backup = Path(self.database + ".pre-photos-pins.bak")
+        self.assertTrue(backup.exists())
+        with closing(sqlite3.connect(backup)) as connection:
+            columns = [row[1] for row in connection.execute("PRAGMA table_info(items)")]
+            self.assertNotIn("photo_key", columns)
+            self.assertNotIn("is_pinned", columns)
+        previous = backup.read_bytes()
+        detail = self.client.get(f"/api/items/{item['id']}").json
+        self.assertEqual(detail["name"], "旧物品")
+        self.assertIsNone(detail["photo_url"])
+        self.assertFalse(detail["is_pinned"])
+        self.client.put(f"/api/items/{item['id']}/pin", json={"is_pinned": True})
+        create_app({"TESTING": True, "DATABASE": self.database})
+        self.assertEqual(previous, backup.read_bytes())
+        self.assertTrue(self.client.get(f"/api/items/{item['id']}").json["is_pinned"])
+
+    def test_quick_usage_simultaneous_requests_write_once(self):
+        item = self.make_item()
+        clients = [self.app.test_client(), self.app.test_client()]
+        for client in clients:
+            self.auth(client, "owner")
+        gate = Barrier(2)
+        def record(client):
+            gate.wait()
+            return client.post(f"/api/items/{item['id']}/usage/today")
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(pool.map(record, clients))
+        self.assertEqual(sorted(response.status_code for response in responses), [200, 201])
+        self.assertEqual(self.client.get(f"/api/items/{item['id']}").json["usage_count"], 1)
 
     def test_lifecycle_cost_search_and_persistence(self):
         item = self.make_item()

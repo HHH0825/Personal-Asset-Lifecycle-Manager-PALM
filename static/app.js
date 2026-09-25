@@ -15,6 +15,11 @@ function iconTile(type, className = 'item-icon') {
   const key = Object.prototype.hasOwnProperty.call(iconTypes, type) ? type : 'other';
   return `<span class="${className}" data-type="${key}">${iconMarkup(key)}</span>`;
 }
+function itemVisual(item, className = 'item-icon') {
+  return item.photo_url
+    ? `<img class="${className} item-photo" src="${escapeHtml(item.photo_url)}" alt="" loading="lazy">`
+    : iconTile(item.icon_type, className);
+}
 function decorativeIcon(name) {
   return `<svg class="type-icon" aria-hidden="true"><use href="/static/icons.svg#${name}"></use></svg>`;
 }
@@ -30,6 +35,7 @@ let toastTimer;
 let csrfToken = null;
 let currentUser = null;
 let sessionEpoch = 0;
+let photoPreviewObjectUrl = null;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -46,8 +52,20 @@ function showToast(message, error = false) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.add('hidden'), 3200);
 }
+function showToastAction(message, label, itemId, recordId) {
+  showToast(message);
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'toast-action';
+  button.textContent = label;
+  button.dataset.editToday = `${itemId}:${recordId}`;
+  $('#toast').append(' ', button);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('#toast').classList.add('hidden'), 7000);
+}
 async function api(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (options.body instanceof FormData) delete headers['Content-Type'];
   if (options.method && !['GET', 'HEAD'].includes(options.method.toUpperCase())) headers['X-CSRF-Token'] = csrfToken || '';
   const response = await fetch(path, { ...options, credentials: 'same-origin', headers });
   if (!response.ok) {
@@ -75,6 +93,7 @@ function clearAccount() {
   csrfToken = null;
   $('#search-input').value = '';
   $('#status-filter').value = 'all';
+  $('#sort-order').value = 'newest';
   for (const selector of ['#items-list', '#detail-content', '#recent-items', '#stats-grid', '#category-chart', '#status-chart', '#monthly-chart', '#analysis-cards']) $(selector).replaceChildren();
   $('#account-name').textContent = '';
   $('#username-form').reset();
@@ -87,6 +106,9 @@ function clearAccount() {
 }
 function setAccountUser(user) {
   currentUser = user;
+  let savedSort = null;
+  try { savedSort = localStorage.getItem(`palm:sort:${user.id}`); } catch (_) { /* Storage is optional. */ }
+  $('#sort-order').value = [...$('#sort-order').options].some((option) => option.value === savedSort) ? savedSort : 'newest';
   $('#account-name').textContent = user.username;
   const key = Object.prototype.hasOwnProperty.call(avatarNames, user.avatar_key) ? user.avatar_key : 'sprout';
   for (const selector of ['#account-avatar', '#profile-avatar']) {
@@ -151,7 +173,24 @@ async function refreshAll() {
   renderReview(insights);
 }
 function renderRecentItems() {
-  $('#recent-items').innerHTML = allItems.length ? allItems.slice(0, 4).map((item) => `<div class="mini-item">${iconTile(item.icon_type, 'mini-icon')}<div class="mini-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${item.purchase_date}</small></div>${badge(item.status)}<span class="mini-price">${yuan(item.purchase_price)}</span></div>`).join('') : empty('还没有物品', '点击右上角“添加物品”开始记录。');
+  $('#recent-items').innerHTML = allItems.length ? allItems.slice(0, 4).map((item) => `<div class="mini-item">${itemVisual(item, 'mini-icon')}<div class="mini-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${item.purchase_date}</small></div>${badge(item.status)}<span class="mini-price">${yuan(item.purchase_price)}</span></div>`).join('') : empty('还没有物品', '点击右上角“添加物品”开始记录。');
+}
+function sortedItems(items) {
+  const order = $('#sort-order').value;
+  const metrics = {
+    holding_desc: ['holding_days', -1], holding_asc: ['holding_days', 1],
+    price_desc: ['purchase_price', -1], price_asc: ['purchase_price', 1],
+    daily_purchase_asc: ['daily_purchase_cost', 1], daily_net_asc: ['daily_net_cost', 1],
+  };
+  return [...items].sort((a, b) => {
+    if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+    if (order === 'newest' || !metrics[order]) return b.id - a.id;
+    const [key, direction] = metrics[order];
+    const first = a[key] == null ? null : Number(a[key]);
+    const second = b[key] == null ? null : Number(b[key]);
+    if (first === null || second === null) return first === second ? b.id - a.id : first === null ? 1 : -1;
+    return direction * (first - second) || b.id - a.id;
+  });
 }
 function renderDashboard(stats, insights) {
   const cards = [
@@ -176,19 +215,21 @@ function renderDashboard(stats, insights) {
 function renderItems() {
   const keyword = $('#search-input').value.trim().toLocaleLowerCase();
   const status = $('#status-filter').value;
-  const filtered = allItems.filter((item) => (status === 'all' || item.status === status) && (`${item.name} ${item.category}`).toLocaleLowerCase().includes(keyword));
+  const filtered = sortedItems(allItems.filter((item) => (status === 'all' || item.status === status) && (`${item.name} ${item.category}`).toLocaleLowerCase().includes(keyword)));
   $('#item-count').textContent = `${filtered.length} 件物品`;
   if (!allItems.length) {
     $('#items-list').innerHTML = `<div class="items-empty"><span class="item-icon">${iconMarkup('other')}</span><span class="eyebrow">ARCHIVE / 001</span><h2>从第一件物品开始</h2><p>记下它的购入时间与价格，以后使用、维修和去向都能接着记录。</p><button type="button" class="primary-btn" data-action="add-item">＋ 添加第一件物品</button></div>`;
     return;
   }
   $('#items-list').innerHTML = filtered.length ? filtered.map((item) => `
-    <article class="item-card" data-open-item="${item.id}" tabindex="0" role="button" aria-label="查看${escapeHtml(item.name)}">
-      <div class="item-card-head">${iconTile(item.icon_type, 'item-icon')}<div class="item-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other}</small></div><div class="item-status">${badge(item.status)}</div></div>
+    <article class="item-card">
+      <button type="button" class="item-card-open" data-open-item="${item.id}" aria-label="查看${escapeHtml(item.name)}详情"></button>
+      <div class="item-card-head">${itemVisual(item, 'item-icon')}<div class="item-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other}</small></div><div class="item-status">${badge(item.status)}</div></div>
       <div class="item-purchase">购于 ${item.purchase_date}</div>
       <div class="item-card-metrics"><div><span>${item.status === 'disposed' ? '曾持有' : '已持有'}</span><strong>${item.holding_days} 天</strong></div><div><span>购买价/天</span><strong>${item.daily_purchase_cost === null ? '暂无' : yuan(item.daily_purchase_cost)}</strong></div><div><span>净成本/天</span><strong>${item.daily_net_cost === null ? '暂无' : yuan(item.daily_net_cost)}</strong></div></div>
       ${itemHint(item)}
       <div class="item-card-foot"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong><span class="item-card-arrow" aria-hidden="true">↗</span></div>
+      <div class="item-card-actions">${item.status === 'disposed' ? '' : `<button type="button" class="small-btn quick-use-btn" data-quick-use="${item.id}" ${item.used_today ? 'disabled' : ''}>${item.used_today ? '✓ 今日已记录' : '＋ 今天用过'}</button>`}<button type="button" class="small-btn pin-btn" data-pin-item="${item.id}" aria-pressed="${item.is_pinned}">${item.is_pinned ? '◆ 已置顶' : '◇ 置顶'}</button></div>
     </article>`).join('') : empty('没有找到物品', '可以调整搜索词或状态筛选。');
 }
 function itemHint(item) {
@@ -286,10 +327,10 @@ function renderDetail() {
   const preview = item.status === 'disposed' ? '' : `<section class="detail-section preview-section"><h3>处置前试算</h3><label class="preview-label" for="preview-proceeds">预计回收金额（元）</label><input id="preview-proceeds" type="number" min="0" max="999999999" step="0.01" inputmode="decimal" placeholder="例如 200.00"><div id="preview-result" class="preview-result" aria-live="polite">输入预计回收金额，查看处置后的净成本。</div><p class="hint">仅供参考，试算不会保存数据或改变物品状态。</p></section>`;
   $('#detail-content').innerHTML = `
     <div class="detail-hero">
-      <div class="detail-top">${iconTile(item.icon_type, 'item-icon')}<div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · 购买于 ${item.purchase_date}</p><p class="detail-warranty">保修到期：${item.warranty_expires_on || '未填写'}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div>
+      <div class="detail-top">${itemVisual(item, 'item-icon')}<div class="detail-main"><h2>${escapeHtml(item.name)} ${badge(item.status)}</h2><p>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · 购买于 ${item.purchase_date}</p><p class="detail-warranty">保修到期：${item.warranty_expires_on || '未填写'}</p></div><div class="detail-actions"><button class="small-btn" data-action="edit-item">编辑物品</button><button class="small-btn danger" data-action="delete-item">删除物品</button></div></div>
       <div class="detail-metrics"><div><span>购买价格</span><strong>${yuan(item.purchase_price)}</strong></div><div><span>维修费用</span><strong>${yuan(item.maintenance_total)}</strong></div><div><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong></div><div><span>${item.status === 'disposed' ? '曾持有' : '已持有'} · 使用记录 ${item.usage_count} 条</span><strong>${item.holding_days} 天</strong></div></div>
     </div>
-    <div class="detail-grid"><div>${milestonesMarkup(item)}${targetMarkup(item)}<section class="detail-section"><div class="section-heading"><h3>生命周期时间线</h3></div>${timeline(item)}</section></div>
+    <div class="detail-grid"><div>${item.photo_url ? `<section class="detail-section item-photo-section"><div class="section-heading"><h3>物品照片</h3><button type="button" class="text-btn" data-action="remove-photo">删除照片</button></div><img class="detail-photo-large" src="${escapeHtml(item.photo_url)}" alt="${escapeHtml(item.name)}的照片"></section>` : ''}${milestonesMarkup(item)}${targetMarkup(item)}<section class="detail-section"><div class="section-heading"><h3>生命周期时间线</h3></div>${timeline(item)}</section></div>
     <div><section class="detail-section cost-section"><h3>持有成本</h3><div class="daily-cost"><span>购买价/天</span><strong>${item.daily_purchase_cost === null ? '暂无' : yuan(item.daily_purchase_cost)}</strong></div><div class="daily-cost"><span>净成本/天</span><strong>${item.daily_net_cost === null ? '暂无' : yuan(item.daily_net_cost)}</strong></div><p class="note-text">${item.daily_net_cost === null ? '持有不足一天，暂不计算日均花费。' : `按 ${item.holding_days} 天持有时间计算。`}<br>净成本包含维修费用，并扣除处置回收金额。<br>最近一次记录的使用：${item.last_recorded_use || '未记录'}</p></section>
     ${preview}
     <section class="detail-section"><h3>记录操作</h3><div class="detail-actions"><button class="small-btn" data-action="add-usage" ${item.status === 'disposed' ? 'disabled' : ''}>＋ 使用记录</button><button class="small-btn" data-action="add-maintenance" ${item.status === 'disposed' ? 'disabled' : ''}>＋ 维修记录</button>${item.disposal ? '' : '<button class="small-btn" data-action="add-disposal">＋ 处置物品</button>'}</div></section>
@@ -323,13 +364,17 @@ const field = (name, label, type = 'text', opts = {}) => `<label class="field ${
 function iconChoices() {
   return `<fieldset class="icon-choice-field"><legend>物品类型</legend><div class="icon-choice-grid">${Object.entries(iconTypes).map(([key, label]) => `<label class="icon-option"><input type="radio" name="icon_type" value="${key}" required><span class="icon-option-face">${iconMarkup(key)}<span>${label}</span></span></label>`).join('')}</div></fieldset>`;
 }
+function photoField(editing) {
+  return `<div class="photo-upload-field"><label class="field wide"><span>物品照片（可选）</span><input type="file" name="photo" accept="image/jpeg,image/png,image/webp"><small>JPEG、PNG 或 WebP，最多 5 MB；保存时自动调整大小。</small></label><div class="photo-preview-wrap"><img id="item-photo-preview" class="item-photo-preview ${editing?.photo_url ? '' : 'hidden'}" src="${escapeHtml(editing?.photo_url || '')}" alt="照片预览">${editing?.photo_url ? '<label class="photo-remove"><input type="checkbox" name="remove_photo"> 删除现有照片</label>' : ''}</div></div>`;
+}
 function formMarkup(kind, editing) {
-  if (kind === 'item') return field('name', '物品名称', 'text', { required: true, wide: true, max: 120 }) + iconChoices() + field('category', '分类', 'text', { required: true, max: 60 }) + field('purchase_date', '购买日期', 'date', { required: true }) + field('warranty_expires_on', '保修到期日（可选）', 'date', { future: true }) + field('purchase_price', '购买价格（元）', 'number', { required: true }) + field('status', '当前状态', 'select', { options: editing?.status === 'disposed' ? [['disposed', '已处置']] : [['active', '使用中'], ['idle', '闲置']] }) + field('notes', '备注', 'textarea', { wide: true });
+  if (kind === 'item') return field('name', '物品名称', 'text', { required: true, wide: true, max: 120 }) + iconChoices() + photoField(editing) + field('category', '分类', 'text', { required: true, max: 60 }) + field('purchase_date', '购买日期', 'date', { required: true }) + field('warranty_expires_on', '保修到期日（可选）', 'date', { future: true }) + field('purchase_price', '购买价格（元）', 'number', { required: true }) + field('status', '当前状态', 'select', { options: editing?.status === 'disposed' ? [['disposed', '已处置']] : [['active', '使用中'], ['idle', '闲置']] }) + field('notes', '备注', 'textarea', { wide: true });
   if (kind === 'usage') return field('used_on', '使用日期', 'date', { required: true }) + field('notes', '使用备注', 'textarea', { wide: true });
   if (kind === 'maintenance') return field('maintained_on', '维修日期', 'date', { required: true }) + field('cost', '维修费用（元）', 'number', { required: true }) + field('description', '维修说明', 'textarea', { required: true, wide: true, max: 500 });
   return field('disposed_on', '处置日期', 'date', { required: true }) + field('method', '处置方式', 'select', { options: Object.entries(methodNames) }) + field('proceeds', '回收金额（元）', 'number', { required: true }) + field('notes', '备注', 'textarea', { wide: true });
 }
 function openForm(kind, record = null) {
+  if (photoPreviewObjectUrl) { URL.revokeObjectURL(photoPreviewObjectUrl); photoPreviewObjectUrl = null; }
   formState = { kind, record };
   clearTimeout(toastTimer);
   $('#toast').classList.add('hidden');
@@ -341,6 +386,7 @@ function openForm(kind, record = null) {
   const defaults = record || (kind === 'item' ? { status: 'active', icon_type: 'other' } : kind === 'disposal' ? { method: 'sold' } : {});
   for (const input of form.querySelectorAll('[name]')) {
     if (input.type === 'radio') input.checked = input.value === defaults[input.name];
+    else if (input.type === 'file' || input.type === 'checkbox') continue;
     else if (defaults[input.name] != null) input.value = defaults[input.name];
     else if (input.type === 'date' && input.name !== 'warranty_expires_on') input.value = todayLocal();
   }
@@ -351,6 +397,15 @@ async function saveForm(event) {
   const { kind, record } = formState;
   const epoch = sessionEpoch;
   const data = Object.fromEntries(new FormData($('#entity-form')).entries());
+  const photoFile = kind === 'item' ? $('#entity-form [name="photo"]').files[0] : null;
+  const removePhoto = kind === 'item' && $('#entity-form [name="remove_photo"]')?.checked;
+  delete data.photo;
+  delete data.remove_photo;
+  if (photoFile && (photoFile.size > 5 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(photoFile.type))) {
+    $('#form-error').textContent = '照片只支持 JPEG、PNG 或 WebP，且不能超过 5 MB';
+    $('#form-error').classList.remove('hidden');
+    return;
+  }
   let path, method;
   if (kind === 'item') { path = record ? `/api/items/${record.id}` : '/api/items'; method = record ? 'PUT' : 'POST'; }
   else if (kind === 'disposal') { path = record ? `/api/disposal/${record.id}` : `/api/items/${currentItem.id}/disposal`; method = record ? 'PUT' : 'POST'; }
@@ -365,6 +420,20 @@ async function saveForm(event) {
     $('#form-error').classList.remove('hidden');
     submit.disabled = false;
     return;
+  }
+  if (epoch !== sessionEpoch) return;
+  let photoError = null;
+  if (kind === 'item' && (photoFile || removePhoto)) {
+    try {
+      if (photoFile) {
+        const upload = new FormData();
+        upload.append('photo', photoFile);
+        saved = await api(`/api/items/${saved.id}/photo`, { method: 'POST', body: upload });
+      } else {
+        await api(`/api/items/${saved.id}/photo`, { method: 'DELETE' });
+        saved = await api(`/api/items/${saved.id}`);
+      }
+    } catch (error) { photoError = error.message; }
   }
   submit.disabled = false;
   if (epoch !== sessionEpoch) return;
@@ -381,7 +450,7 @@ async function saveForm(event) {
     if (kind !== 'item' && currentItem) await openItem(currentItem.id);
     await refreshAll();
     if (epoch !== sessionEpoch) return;
-    showToast(kind === 'item' ? `保存成功 · 图标：${iconTypes[saved.icon_type] || iconTypes.other}` : '保存成功');
+    showToast(photoError ? `物品已保存，照片处理失败：${photoError}` : kind === 'item' ? '物品已保存' : '保存成功', Boolean(photoError));
   } catch (error) {
     if (epoch !== sessionEpoch) return;
     showToast(`记录已保存，但部分页面刷新失败：${error.message}`, true);
@@ -403,6 +472,44 @@ function getRecord(type, id) {
 document.addEventListener('click', async (event) => {
   const preset = event.target.closest('[data-goal-preset]');
   if (preset) { $('#goal-amount').value = preset.dataset.goalPreset; $('#goal-amount').focus(); return; }
+  const quick = event.target.closest('[data-quick-use]');
+  if (quick) {
+    quick.disabled = true;
+    const epoch = sessionEpoch;
+    try {
+      const itemId = Number(quick.dataset.quickUse);
+      const result = await api(`/api/items/${itemId}/usage/today`, { method: 'POST' });
+      if (epoch !== sessionEpoch) return;
+      await refreshAll();
+      if (epoch !== sessionEpoch) return;
+      showToastAction(result.created ? '今天的使用已记下' : '今天已有使用记录', '补充备注', itemId, result.record.id);
+    } catch (error) { if (epoch === sessionEpoch) { quick.disabled = false; showToast(error.message, true); } }
+    return;
+  }
+  const pin = event.target.closest('[data-pin-item]');
+  if (pin) {
+    pin.disabled = true;
+    const epoch = sessionEpoch;
+    try {
+      const item = allItems.find((entry) => entry.id === Number(pin.dataset.pinItem));
+      const saved = await api(`/api/items/${item.id}/pin`, { method: 'PUT', body: JSON.stringify({ is_pinned: !item.is_pinned }) });
+      if (epoch !== sessionEpoch) return;
+      allItems = allItems.map((entry) => entry.id === saved.id ? saved : entry);
+      renderItems();
+      showToast(saved.is_pinned ? '已置顶' : '已取消置顶');
+    } catch (error) { if (epoch === sessionEpoch) { pin.disabled = false; showToast(error.message, true); } }
+    return;
+  }
+  const editToday = event.target.closest('[data-edit-today]');
+  if (editToday) {
+    const [itemId, recordId] = editToday.dataset.editToday.split(':').map(Number);
+    await run(async () => {
+      await openItem(itemId);
+      const record = currentItem?.usage_records.find((entry) => entry.id === recordId);
+      if (record) openForm('usage', record);
+    });
+    return;
+  }
   const nav = event.target.closest('[data-view]');
   if (nav) { if (nav.tagName === 'A') event.preventDefault(); showView(nav.dataset.view); return; }
   const open = event.target.closest('[data-open-item]');
@@ -418,6 +525,12 @@ document.addEventListener('click', async (event) => {
   if (action === 'add-usage') openForm('usage');
   if (action === 'add-maintenance') openForm('maintenance');
   if (action === 'add-disposal') openForm('disposal');
+  if (action === 'remove-photo' && currentItem?.photo_url && confirm('确定删除这张物品照片吗？')) await run(async () => {
+    const itemId = currentItem.id;
+    await api(`/api/items/${itemId}/photo`, { method: 'DELETE' });
+    await openItem(itemId);
+    await refreshAll();
+  }, '照片已删除');
   if (action === 'delete-item' && confirm('确定删除这个物品及其全部记录吗？')) await run(async () => { await api(`/api/items/${currentItem.id}`, { method: 'DELETE' }); currentItem = null; await refreshAll(); showView('items'); }, '物品已删除');
 });
 document.addEventListener('submit', (event) => {
@@ -464,15 +577,31 @@ $('#avatar-reset').addEventListener('click', () => run(async () => {
 }, '已恢复默认头像'));
 document.addEventListener('keydown', (event) => {
   const card = event.target.closest('[data-open-item]');
-  if (card && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); run(() => openItem(Number(card.dataset.openItem))); }
+  if (card && card.tagName !== 'BUTTON' && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); run(() => openItem(Number(card.dataset.openItem))); }
 });
 document.addEventListener('input', (event) => {
   if (event.target.id === 'preview-proceeds') updateDisposalPreview();
+});
+$('#entity-form').addEventListener('change', (event) => {
+  if (event.target.name !== 'photo') return;
+  if (photoPreviewObjectUrl) URL.revokeObjectURL(photoPreviewObjectUrl);
+  const preview = $('#item-photo-preview');
+  const file = event.target.files[0];
+  photoPreviewObjectUrl = file ? URL.createObjectURL(file) : null;
+  const previewSource = photoPreviewObjectUrl || formState?.record?.photo_url;
+  if (previewSource) preview.src = previewSource;
+  else preview.removeAttribute('src');
+  preview.classList.toggle('hidden', !previewSource);
+  if (file && $('#entity-form [name="remove_photo"]')) $('#entity-form [name="remove_photo"]').checked = false;
 });
 $('#add-item-btn').addEventListener('click', () => openForm('item'));
 $('#back-btn').addEventListener('click', () => showView(detailReturnView));
 $('#search-input').addEventListener('input', renderItems);
 $('#status-filter').addEventListener('change', renderItems);
+$('#sort-order').addEventListener('change', () => {
+  if (currentUser) { try { localStorage.setItem(`palm:sort:${currentUser.id}`, $('#sort-order').value); } catch (_) { /* Storage is optional. */ } }
+  renderItems();
+});
 $('#entity-form').addEventListener('submit', saveForm);
 $('#entity-form').addEventListener('click', (event) => {
   const option = event.target.closest('.icon-option');
@@ -480,6 +609,9 @@ $('#entity-form').addEventListener('click', (event) => {
 });
 $('#close-dialog').addEventListener('click', () => $('#form-dialog').close());
 $('#cancel-dialog').addEventListener('click', () => $('#form-dialog').close());
+$('#form-dialog').addEventListener('close', () => {
+  if (photoPreviewObjectUrl) { URL.revokeObjectURL(photoPreviewObjectUrl); photoPreviewObjectUrl = null; }
+});
 $('#app-retry').addEventListener('click', bootstrap);
 $('#logout-btn').addEventListener('click', () => run(async () => {
   await api('/api/auth/logout', { method: 'POST' });
