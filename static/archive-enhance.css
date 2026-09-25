@@ -1,3 +1,7 @@
+.load-state { grid-column: 1 / -1; padding: 30px 22px; border: 1px dashed var(--line); border-radius: var(--radius-card); background: var(--sheet); color: var(--muted); font-size: 13px; text-align: center; }
+.load-state p { margin: 0; overflow-wrap: anywhere; }
+.load-state .secondary-btn { margin-top: 14px; }
+.stats-grid > .load-state { width: 100%; }
 .archive-page .item-card { cursor: default; }
 .archive-page .item-card:focus-within { border-color: #a4b895; }
 .archive-page .item-card-open { position: absolute; inset: 0; z-index: 1; width: 100%; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }

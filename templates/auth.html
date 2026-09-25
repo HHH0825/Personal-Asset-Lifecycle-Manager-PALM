@@ -1,6 +1,14 @@
 {% extends 'base.html' %}
 {% from '_macros.html' import brand, icon %}
 {% block title %}{{ '注册' if register else '登录' }} · PALM{% endblock %}
+{% block core_styles %}
+  <link rel="stylesheet" href="/static/style-auth.css">
+  <link rel="stylesheet" href="/static/style-responsive.css">
+{% endblock %}
+{% block page_styles %}
+  <link rel="stylesheet" href="/static/notebook-auth.css">
+  <link rel="stylesheet" href="/static/notebook-responsive.css">
+{% endblock %}
 {% block scripts %}<script src="/static/auth.js" defer></script>{% endblock %}
 {% block body_class %}auth-page{% endblock %}
 {% block content %}

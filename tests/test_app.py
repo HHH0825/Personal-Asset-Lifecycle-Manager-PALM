@@ -9,9 +9,13 @@ from contextlib import closing
 from datetime import date, timedelta
 from pathlib import Path
 
-from app import create_app
+from app import create_app, initialize_app
 from werkzeug.security import generate_password_hash
 from PIL import Image
+
+
+def make_test_app(config):
+    return initialize_app(create_app(config))
 
 
 def day(offset=0):
@@ -22,7 +26,7 @@ class PalmApiTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.database = str(Path(self.temp.name) / "test.sqlite3")
-        self.app = create_app({"TESTING": True, "DATABASE": self.database})
+        self.app = make_test_app({"TESTING": True, "DATABASE": self.database})
         self.client = self.app.test_client()
         self.auth(self.client, "owner", register=True)
 
@@ -80,7 +84,7 @@ class PalmApiTest(unittest.TestCase):
         item = self.make_item()
         path = f"/api/items/{item['id']}/photo"
         self.assertEqual(self.client.post(path, data={"photo": (BytesIO(b"invalid"), "bad.png")}).status_code, 400)
-        with patch("app.PHOTO_MAX_BYTES", 100):
+        with patch("palm.photo.PHOTO_MAX_BYTES", 100):
             self.assertEqual(self.client.post(path, data={"photo": (BytesIO(b"x" * 101), "huge.png")}).status_code, 400)
         self.assertIsNone(self.client.get(f"/api/items/{item['id']}").json["photo_url"])
         self.assertEqual(self.client.post(path, data={"photo": (BytesIO(self.photo_bytes()), "good.png")}).status_code, 200)
@@ -102,7 +106,7 @@ class PalmApiTest(unittest.TestCase):
         self.assertEqual(self.client.post(path).json["record"]["notes"], "手动补记")
         self.assertEqual(self.client.put(f"/api/items/{item_id}/pin", json={"is_pinned": True}).json["is_pinned"], True)
         self.assertEqual(self.client.put(f"/api/items/{item_id}/pin", json={"is_pinned": 1}).status_code, 400)
-        restarted = create_app({"TESTING": True, "DATABASE": self.database}).test_client()
+        restarted = make_test_app({"TESTING": True, "DATABASE": self.database}).test_client()
         self.auth(restarted, "owner")
         self.assertTrue(restarted.get(f"/api/items/{item_id}").json["is_pinned"])
         self.assertTrue(restarted.get(f"/api/items/{item_id}").json["used_today"])
@@ -121,7 +125,7 @@ class PalmApiTest(unittest.TestCase):
             connection.execute("ALTER TABLE items DROP COLUMN is_pinned")
             connection.execute("PRAGMA user_version = 6")
             connection.commit()
-        create_app({"TESTING": True, "DATABASE": self.database})
+        make_test_app({"TESTING": True, "DATABASE": self.database})
         backup = Path(self.database + ".pre-photos-pins.bak")
         self.assertTrue(backup.exists())
         with closing(sqlite3.connect(backup)) as connection:
@@ -134,7 +138,7 @@ class PalmApiTest(unittest.TestCase):
         self.assertIsNone(detail["photo_url"])
         self.assertFalse(detail["is_pinned"])
         self.client.put(f"/api/items/{item['id']}/pin", json={"is_pinned": True})
-        create_app({"TESTING": True, "DATABASE": self.database})
+        make_test_app({"TESTING": True, "DATABASE": self.database})
         self.assertEqual(previous, backup.read_bytes())
         self.assertTrue(self.client.get(f"/api/items/{item['id']}").json["is_pinned"])
 
@@ -176,7 +180,7 @@ class PalmApiTest(unittest.TestCase):
                          (detail["holding_days"], detail["daily_purchase_cost"], detail["daily_net_cost"]))
         self.assertEqual(self.client.get('/api/items?q=笔记').json[0]["id"], item_id)
         self.assertEqual(self.client.get('/api/stats').json["net_cost_total"], "700.00")
-        restarted = create_app({"TESTING": True, "DATABASE": self.database}).test_client()
+        restarted = make_test_app({"TESTING": True, "DATABASE": self.database}).test_client()
         self.assertEqual(self.app.secret_key, restarted.application.secret_key)
         self.auth(restarted, "owner")
         self.assertEqual(restarted.get(f"/api/items/{item_id}").json["net_cost"], "700.00")
@@ -295,13 +299,13 @@ class PalmApiTest(unittest.TestCase):
             connection.execute("ALTER TABLE items DROP COLUMN warranty_expires_on")
             connection.execute("PRAGMA user_version = 5")
             connection.commit()
-        create_app({"TESTING": True, "DATABASE": self.database})
+        make_test_app({"TESTING": True, "DATABASE": self.database})
         backup = Path(self.database + ".pre-warranty.bak")
         original_backup = backup.read_bytes()
         with closing(sqlite3.connect(backup)) as connection:
             self.assertNotIn("warranty_expires_on", [row[1] for row in connection.execute("PRAGMA table_info(items)")])
         self.assertIsNone(self.client.get(path).json["warranty_expires_on"])
-        create_app({"TESTING": True, "DATABASE": self.database})
+        make_test_app({"TESTING": True, "DATABASE": self.database})
         self.assertEqual(backup.read_bytes(), original_backup)
 
     def test_analysis_warranty_use_boundaries_and_isolation(self):
@@ -439,10 +443,10 @@ class PalmApiTest(unittest.TestCase):
                 connection.execute("INSERT INTO items VALUES (1, '旧物品', '数码', ?, 10000, '', 'active', CURRENT_TIMESTAMP)", (day(5),))
                 connection.execute("INSERT INTO usage_records VALUES (1, 1, ?, '旧使用记录')", (day(2),))
                 connection.commit()
-            migrated = create_app({"TESTING": True, "DATABASE": old_database, "SECRET_KEY": "test-key"})
+            migrated = make_test_app({"TESTING": True, "DATABASE": old_database, "SECRET_KEY": "test-key"})
             self.assertTrue(Path(old_database + ".pre-accounts.bak").exists())
             self.assertTrue(Path(old_database + ".pre-icons.bak").exists())
-            create_app({"TESTING": True, "DATABASE": old_database, "SECRET_KEY": "test-key"})
+            make_test_app({"TESTING": True, "DATABASE": old_database, "SECRET_KEY": "test-key"})
             first = migrated.test_client()
             second = migrated.test_client()
             self.auth(first, "first", register=True)
@@ -473,7 +477,7 @@ class PalmApiTest(unittest.TestCase):
                     connection.execute("INSERT INTO items VALUES (?, ?, ?, ?, ?, 10000, '', 'active', CURRENT_TIMESTAMP)",
                                        (item_id, user_id, f"旧物品{item_id}", category, day(5)))
                 connection.commit()
-            migrated = create_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
+            migrated = make_test_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
             self.assertTrue(Path(database + ".pre-icons.bak").exists())
             first, second = migrated.test_client(), migrated.test_client()
             self.auth(first, "first")
@@ -483,7 +487,7 @@ class PalmApiTest(unittest.TestCase):
             self.assertEqual([(item["category"], item["icon_type"]) for item in second.get("/api/items").json],
                              [("自定义分类", "other")])
             self.assertEqual(second.get("/api/items/1").status_code, 404)
-            create_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
+            make_test_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
             self.assertEqual(first.get("/api/items/1").json["icon_type"], "digital")
 
     def test_public_pages_and_auth_redirects(self):
@@ -524,7 +528,7 @@ class PalmApiTest(unittest.TestCase):
         self.auth(other, "target_other", register=True)
         self.assertEqual(other.put(path, json={"amount": "1"}).status_code, 404)
         self.assertEqual(other.get("/api/items").json, [])
-        restarted = create_app({"TESTING": True, "DATABASE": self.database}).test_client()
+        restarted = make_test_app({"TESTING": True, "DATABASE": self.database}).test_client()
         self.auth(restarted, "owner")
         self.assertEqual(restarted.get(f"/api/items/{item['id']}").json["daily_target"]["amount"], "1.00")
         self.assertIsNone(self.client.put(path, json={"amount": None}).json["daily_target"])
@@ -561,7 +565,7 @@ class PalmApiTest(unittest.TestCase):
             connection.execute("ALTER TABLE items DROP COLUMN daily_target_cents")
             connection.execute("PRAGMA user_version = 3")
             connection.commit()
-        create_app({"TESTING": True, "DATABASE": self.database})
+        make_test_app({"TESTING": True, "DATABASE": self.database})
         backup = Path(self.database + ".pre-goals.bak")
         original_backup = backup.read_bytes()
         with closing(sqlite3.connect(backup)) as connection:
@@ -571,7 +575,7 @@ class PalmApiTest(unittest.TestCase):
                          ("135.25", "books", "原有记录"))
         self.assertIsNone(detail["daily_target"])
         self.client.put(f"/api/items/{item['id']}/daily-target", json={"amount": "2"})
-        create_app({"TESTING": True, "DATABASE": self.database})
+        make_test_app({"TESTING": True, "DATABASE": self.database})
         self.assertEqual(backup.read_bytes(), original_backup)
         self.assertEqual(self.client.get(f"/api/items/{item['id']}").json["daily_target"]["amount"], "2.00")
 
@@ -630,7 +634,7 @@ class PalmApiTest(unittest.TestCase):
                 connection.execute("INSERT INTO users VALUES (1, 'legacy', 'legacy', ?, CURRENT_TIMESTAMP)",
                                    (generate_password_hash("a-strong-password-123"),))
                 connection.commit()
-            migrated = create_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
+            migrated = make_test_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
             backup = Path(database + ".pre-profile.bak")
             original_backup = backup.read_bytes()
             with closing(sqlite3.connect(backup)) as connection:
@@ -639,7 +643,7 @@ class PalmApiTest(unittest.TestCase):
             self.auth(client, "legacy")
             self.assertIsNone(client.get("/api/auth/me").json["user"]["avatar_key"])
             self.assertEqual(client.put("/api/account/avatar", json={"avatar_key": "book"}).status_code, 200)
-            create_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
+            make_test_app({"TESTING": True, "DATABASE": database, "SECRET_KEY": "test-key"})
             self.assertEqual(backup.read_bytes(), original_backup)
             self.assertEqual(client.get("/api/auth/me").json["user"]["avatar_key"], "book")
 

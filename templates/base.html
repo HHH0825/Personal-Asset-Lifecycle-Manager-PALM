@@ -8,11 +8,9 @@
   <title>{% block title %}PALM · 个人物品手账{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="/static/palm-logo.svg">
   <link rel="stylesheet" href="/static/style.css">
+  {% block core_styles %}{% endblock %}
   <link rel="stylesheet" href="/static/notebook.css">
-  <link rel="stylesheet" href="/static/account.css">
-  <link rel="stylesheet" href="/static/dashboard-motion.css">
-  <link rel="stylesheet" href="/static/analysis.css">
-  <link rel="stylesheet" href="/static/archive-enhance.css">
+  {% block page_styles %}{% endblock %}
   {% block scripts %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">

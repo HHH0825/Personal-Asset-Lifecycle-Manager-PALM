@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
 {% from '_macros.html' import brand, icon %}
-{% block scripts %}<link rel="stylesheet" href="/static/landing-motion.css"><script src="/static/landing.js" defer></script>{% endblock %}
+{% block core_styles %}<link rel="stylesheet" href="/static/style-responsive.css">{% endblock %}
+{% block page_styles %}
+  <link rel="stylesheet" href="/static/notebook-landing.css">
+  <link rel="stylesheet" href="/static/notebook-responsive.css">
+  <link rel="stylesheet" href="/static/landing-motion.css">
+{% endblock %}
+{% block scripts %}<script src="/static/landing.js" defer></script>{% endblock %}
 {% block body_class %}landing-page{% endblock %}
 {% block content %}
 <header class="public-header page-width">

@@ -1,0 +1,16 @@
+.auth-screen { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(370px, .9fr); }
+.auth-intro { display: flex; flex-direction: column; justify-content: space-between; padding: clamp(35px, 5vw, 75px); background: #e9eae0; }
+.auth-intro h1 { margin: 22px 0; font: 500 clamp(38px, 4.5vw, 68px)/1.35 "Songti SC", SimSun, serif; letter-spacing: .04em; }
+.auth-intro p { color: #69796a; line-height: 2; font-size: 13px; }
+.auth-number { color: #9a634a; font: 13px Georgia, "Microsoft YaHei", sans-serif; letter-spacing: .1em; }
+.auth-panel { display: grid; place-items: center; padding: 45px; }
+.auth-panel-inner { width: min(100%, 390px); }
+.auth-panel h2 { margin: 13px 0 8px; font: 500 34px "Songti SC", SimSun, serif; }
+.auth-panel p { color: #788778; font-size: 12px; line-height: 1.8; }
+#auth-form { margin-top: 34px; }
+.auth-field { display: grid; gap: 10px; margin-bottom: 23px; color: #4b6650; font-size: 12px; }
+.auth-field input { width: 100%; padding: 12px 4px; border: 0; border-bottom: 1px solid #acbcab; border-radius: 0; outline: 0; background: transparent; color: #263a2d; }
+.auth-field input:focus { border-color: #315b41; }
+.auth-submit { width: 100%; margin-top: 10px; }
+.auth-switch { display: flex; align-items: center; justify-content: center; gap: 13px; margin-top: 28px; color: #829082; font-size: 12px; }
+.auth-switch .text-btn { font-size: 12px; }

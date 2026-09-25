@@ -1,5 +1,17 @@
 {% extends 'base.html' %}
-{% block scripts %}<script src="/static/app.js" defer></script>{% endblock %}
+{% block core_styles %}
+  <link rel="stylesheet" href="/static/style-app.css">
+  <link rel="stylesheet" href="/static/style-responsive.css">
+{% endblock %}
+{% block page_styles %}
+  <link rel="stylesheet" href="/static/notebook-app.css">
+  <link rel="stylesheet" href="/static/notebook-responsive.css">
+  <link rel="stylesheet" href="/static/account.css">
+  <link rel="stylesheet" href="/static/dashboard-motion.css">
+  <link rel="stylesheet" href="/static/analysis.css">
+  <link rel="stylesheet" href="/static/archive-enhance.css">
+{% endblock %}
+{% block scripts %}<script src="/static/app.js" type="module"></script>{% endblock %}
 {% block body_class %}archive-page{% endblock %}
 {% block content %}
 <div id="app-loading" class="app-loading" role="status"><img class="brand-mark" src="/static/palm-logo.svg" alt="" aria-hidden="true" width="42" height="42"><p>正在翻开你的手账…</p><button id="app-retry" class="secondary-btn hidden" type="button">重新加载</button></div>
