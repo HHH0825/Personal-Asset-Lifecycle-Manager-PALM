@@ -1,6 +1,8 @@
 /* Personal account, using the notebook palette from notebook.css. */
 .account-entry { display:inline-flex; align-items:center; gap:8px; min-width:0; padding:2px; border:0; border-radius:9px; background:transparent; color:var(--ink); cursor:pointer; }
 .account-entry:hover { background:#e5ebdf; }
+.sidebar nav.sidebar-account-nav { width:100%; margin-top:auto; padding-top:13px; border-top:1px solid #cfd5ca; }
+.sidebar-foot { margin-top:12px; }
 #account-name { max-width:125px; color:var(--ink); font-weight:600; }
 .avatar { display:grid; place-items:center; flex:none; width:42px; height:42px; border-radius:13px; background:#e2ead8; color:#4c7151; }
 .avatar svg { width:70%; height:70%; }
@@ -36,7 +38,7 @@
 .auth-notice { padding:10px 12px; border-radius:7px; background:#e7efdf; color:#365b42; font-size:12px; }
 @media (max-width:850px) { .account-grid { grid-template-columns:1fr; } }
 @media (max-width:650px) {
-  .sidebar .nav-link[data-view="account"] { display:none; }
+  .sidebar nav.sidebar-account-nav { display:none; }
   .account-intro { padding:20px; gap:14px; }
   .avatar-large { width:66px; height:66px; border-radius:17px; }
   .account-intro h2 { font-size:25px; }
