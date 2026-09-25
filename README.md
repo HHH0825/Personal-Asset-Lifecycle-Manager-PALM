@@ -29,7 +29,9 @@ flowchart LR
 
 ## 启动
 
-需要 Python 3.10 或更新版本。以下命令在项目目录执行（Windows PowerShell）：
+需要 Python 3.10 或更新版本。Windows 用户可双击项目根目录的 **[启动 PALM.bat](<启动 PALM.bat>)**。脚本会打开终端并显示访问地址 <http://127.0.0.1:5000>；首次运行会自动创建 `.venv` 并安装 `requirements.txt` 中的依赖，因此需要联网。之后启动会检查并补全缺失的依赖。浏览器需手动打开该地址；关闭终端窗口或按 `Ctrl+C` 即可停止服务。若 Python 缺失、依赖安装失败或 5000 端口被占用，终端会保留错误提示。
+
+也可以在项目目录使用以下命令启动（Windows PowerShell）：
 
 ```powershell
 python -m venv .venv
