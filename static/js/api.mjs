@@ -24,7 +24,9 @@ export async function api(path, options = {}) {
       if (!state.user || state.user.id !== getSession().user?.id) onExpired();
       else onToken(state.csrf_token);
     }
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
   return response.status === 204 ? null : response.json();
 }

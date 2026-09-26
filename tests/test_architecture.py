@@ -115,8 +115,25 @@ class ArchitectureTest(unittest.TestCase):
             self.assertIsNone(connection.execute(
                 "SELECT name FROM sqlite_master WHERE name = 'rollback_probe'"
             ).fetchone())
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 8)
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM users").fetchone()[0], 1)
+
+    def test_version_seven_upgrade_backs_up_before_trash_column(self):
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute("DROP INDEX idx_items_trash")
+            connection.execute("ALTER TABLE items DROP COLUMN deleted_at")
+            connection.execute("PRAGMA user_version = 7")
+            connection.commit()
+        initialize_database(self.app)
+        backup = Path(str(self.database) + ".pre-trash.bak")
+        self.assertTrue(backup.exists())
+        with closing(sqlite3.connect(backup)) as previous:
+            self.assertNotIn("deleted_at", [row[1] for row in previous.execute("PRAGMA table_info(items)")])
+        with closing(sqlite3.connect(self.database)) as current:
+            self.assertIn("deleted_at", [row[1] for row in current.execute("PRAGMA table_info(items)")])
+            self.assertEqual(current.execute("PRAGMA user_version").fetchone()[0], 8)
+        initialize_database(self.app)
+        self.assertEqual(len(list(self.database.parent.glob("*.pre-trash.bak"))), 1)
 
 
 if __name__ == "__main__":

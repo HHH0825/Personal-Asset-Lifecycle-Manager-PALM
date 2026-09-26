@@ -44,6 +44,7 @@ def initialize_database(app):
                         (bool(old_user_table) and ("avatar_key" not in old_user_columns or "auth_version" not in old_user_columns), ".pre-profile.bak"),
                         (bool(old_table) and "warranty_expires_on" not in old_columns, ".pre-warranty.bak"),
                         (bool(old_table) and ("photo_key" not in old_columns or "is_pinned" not in old_columns), ".pre-photos-pins.bak"),
+                        (bool(old_table) and "deleted_at" not in old_columns, ".pre-trash.bak"),
                     ):
                         if not needed:
                             continue
@@ -92,8 +93,11 @@ def initialize_database(app):
                 get_db().execute("ALTER TABLE items ADD COLUMN photo_key TEXT")
             if "is_pinned" not in columns:
                 get_db().execute("ALTER TABLE items ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0 CHECK (is_pinned IN (0, 1))")
+            if "deleted_at" not in columns:
+                get_db().execute("ALTER TABLE items ADD COLUMN deleted_at TEXT")
             get_db().execute("CREATE INDEX IF NOT EXISTS idx_items_user ON items(user_id)")
-            get_db().execute("PRAGMA user_version = 7")
+            get_db().execute("CREATE INDEX IF NOT EXISTS idx_items_trash ON items(deleted_at)")
+            get_db().execute("PRAGMA user_version = 8")
             get_db().commit()
     except Exception as exc:
         raise RuntimeError("数据库初始化或升级失败，请检查原数据库与升级前备份") from exc

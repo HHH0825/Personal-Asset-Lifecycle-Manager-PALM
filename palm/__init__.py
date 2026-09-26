@@ -7,12 +7,15 @@ from pathlib import Path
 from flask import Flask
 
 from .database import close_db, initialize_database
-from .security import input_error, not_found, avoid_cached_account_data, protect_api
+from .security import input_error, not_found, gone, avoid_cached_account_data, protect_api
 from .routes_account import bp as account_bp
 from .routes_pages import bp as pages_bp
 from .routes_items import bp as items_bp
 from .routes_events import bp as events_bp
 from .routes_insights import bp as insights_bp
+from .routes_trash import bp as trash_bp
+from .routes_exports import bp as exports_bp
+from .routes_reports import bp as reports_bp
 from .validation import InputError
 
 
@@ -33,9 +36,10 @@ def create_app(test_config=None):
     app.teardown_appcontext(close_db)
     app.register_error_handler(InputError, input_error)
     app.register_error_handler(404, not_found)
+    app.register_error_handler(410, gone)
     app.after_request(avoid_cached_account_data)
     app.before_request(protect_api)
-    for blueprint in (pages_bp, account_bp, items_bp, events_bp, insights_bp):
+    for blueprint in (pages_bp, account_bp, items_bp, events_bp, insights_bp, trash_bp, exports_bp, reports_bp):
         app.register_blueprint(blueprint)
     return app
 
@@ -55,4 +59,7 @@ def initialize_app(app):
                 pass
             app.config["SECRET_KEY"] = key_path.read_text(encoding="ascii")
     initialize_database(app)
+    from .trash import purge_expired
+    with app.app_context():
+        purge_expired()
     return app

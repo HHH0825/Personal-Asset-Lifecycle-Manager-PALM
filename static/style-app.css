@@ -102,11 +102,11 @@
 .list-intro { display: flex; justify-content: space-between; align-items: end; gap: 15px; margin: 4px 0 31px; }
 .list-intro p { font-family: "Songti SC", SimSun, serif; font-size: 19px; margin: 8px 0 0; color: #5e6b5f; }
 .count-chip { font: 14px Georgia, "Microsoft YaHei", sans-serif; color: #9e6146; white-space: nowrap; }
-.toolbar { display: flex; gap: 12px; margin-bottom: 32px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 32px; }
 .search-box { display: flex; align-items: center; gap: 9px; max-width: 450px; flex: 1; border-bottom: 1px solid #aab7a8; }
 .search-box span { color: #566e5b; font-size: 23px; line-height: 1; }
 .search-box input { width: 100%; padding: 12px 0; border: 0; outline: none; background: transparent; font-size: 13px; color: #27342b; }
-.toolbar select { padding: 9px 12px; border: 1px solid #c9d3c8; color: #3d5743; background: transparent; font-size: 12px; }
+.toolbar select { max-width:100%; padding: 9px 12px; border: 1px solid #c9d3c8; color: #3d5743; background: transparent; font-size: 12px; }
 .items-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .items-list > .empty { grid-column: 1 / -1; }
 .item-card { min-width: 0; display: flex; flex-direction: column; padding: 23px 24px 18px; border: 1px solid #d5ded2; border-top: 2px solid #3b5944; background: #fbfaf5; cursor: pointer; transition: transform .16s, box-shadow .16s, border-color .16s; }

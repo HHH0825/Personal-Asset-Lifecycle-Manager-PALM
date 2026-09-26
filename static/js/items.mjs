@@ -15,11 +15,22 @@ function sortedItems(items, order = 'newest') {
     return direction * (first - second) || b.id - a.id;
   });
 }
+function filterItems(items, { q = '', status = 'all', category = 'all', sort = 'newest' } = {}) {
+  const keyword = q.trim().toLocaleLowerCase();
+  return sortedItems(items.filter((item) => (status === 'all' || item.status === status)
+    && (category === 'all' || item.category === category)
+    && (`${item.name} ${item.category}`).toLocaleLowerCase().includes(keyword)), sort);
+}
 function renderItems(allItems) {
-  const keyword = $('#search-input').value.trim().toLocaleLowerCase();
-  const status = $('#status-filter').value;
-  const filtered = sortedItems(allItems.filter((item) => (status === 'all' || item.status === status) && (`${item.name} ${item.category}`).toLocaleLowerCase().includes(keyword)), $('#sort-order').value);
-  $('#item-count').textContent = `${filtered.length} 件物品`;
+  const categorySelect = $('#category-filter');
+  const category = categorySelect.value;
+  const categories = [...new Set(allItems.map((item) => item.category))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  categorySelect.innerHTML = '<option value="all">全部分类</option>' + categories.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+  categorySelect.value = categories.includes(category) ? category : 'all';
+  const filtered = filterItems(allItems, { q: $('#search-input').value,
+    status: $('#status-filter').value,
+    category: categorySelect.value, sort: $('#sort-order').value });
+  $('#item-count').textContent = `${filtered.length} / ${allItems.length} 件物品`;
   if (!allItems.length) {
     $('#items-list').innerHTML = `<div class="items-empty"><span class="item-icon">${iconMarkup('other')}</span><span class="eyebrow">ARCHIVE / 001</span><h2>从第一件物品开始</h2><p>记下它的购入时间与价格，以后使用、维修和去向都能接着记录。</p><button type="button" class="primary-btn" data-action="add-item">＋ 添加第一件物品</button></div>`;
     return;
@@ -33,7 +44,7 @@ function renderItems(allItems) {
       ${itemHint(item)}
       <div class="item-card-foot"><span>累计净成本</span><strong>${yuan(item.net_cost)}</strong><span class="item-card-arrow" aria-hidden="true">↗</span></div>
       <div class="item-card-actions">${item.status === 'disposed' ? '' : `<button type="button" class="small-btn quick-use-btn" data-quick-use="${item.id}" ${item.used_today ? 'disabled' : ''}>${item.used_today ? '✓ 今日已记录' : '＋ 今天用过'}</button>`}<button type="button" class="small-btn pin-btn" data-pin-item="${item.id}" aria-pressed="${item.is_pinned}">${item.is_pinned ? '◆ 已置顶' : '◇ 置顶'}</button></div>
-    </article>`).join('') : empty('没有找到物品', '可以调整搜索词或状态筛选。');
+    </article>`).join('') : empty('没有找到物品', '可以调整搜索词、状态或分类筛选。');
 }
 function itemHint(item) {
   const today = item.milestones.earned.find((entry) => entry.is_today);
@@ -49,4 +60,4 @@ function itemHint(item) {
   return text ? `<div class="item-card-note ${today ? 'today-note' : ''}">${decorativeIcon(today ? 'spark' : 'sprout')}<span>${escapeHtml(text)}</span></div>` : '';
 }
 
-export { sortedItems, renderItems };
+export { sortedItems, filterItems, renderItems };

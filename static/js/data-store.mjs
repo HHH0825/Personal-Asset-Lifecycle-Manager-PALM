@@ -44,10 +44,11 @@ export function createDataStore(fetcher, { ttlMs = 60_000, now = () => Date.now(
   }
 
   function invalidateAll() { invalidate([...entries.keys()]); }
+  function invalidateMatching(predicate) { invalidate([...entries.keys()].filter(predicate)); }
   function set(key, value) {
     invalidate([key]);
     entries.set(key, { value, hasValue: true, savedAt: now(), promise: null, controller: null });
   }
 
-  return { load, peek, isFresh, invalidate, invalidateAll, clear: invalidateAll, set };
+  return { load, peek, isFresh, invalidate, invalidateMatching, invalidateAll, clear: invalidateAll, set };
 }

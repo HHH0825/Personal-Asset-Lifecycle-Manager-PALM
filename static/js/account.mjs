@@ -1,4 +1,4 @@
-import { $, avatarNames, avatarMarkup } from './common.mjs';
+import { $, avatarNames, avatarMarkup, iconTypes, escapeHtml } from './common.mjs';
 import { showToast } from './feedback.mjs';
 function renderAccountUser(user) {
   let savedSort = null;
@@ -56,3 +56,13 @@ async function resetAvatar({ api, setUser, isCurrent }) {
 }
 
 export { renderAccountUser, saveAccountForm, resetAvatar };
+
+function renderTrash(rows) {
+  $('#trash-list').innerHTML = rows.length ? rows.map((item) => {
+    const days = Math.max(0, Math.ceil((Date.parse(item.expires_at) - Date.now()) / 86400000));
+    const deleted = new Date(item.deleted_at).toLocaleString('zh-CN');
+    return `<div class="trash-row"><div><strong>${escapeHtml(item.name)}</strong><small>${iconTypes[item.icon_type] || iconTypes.other} · 删除于 ${escapeHtml(deleted)} · 还剩 ${days} 天</small></div><div class="trash-actions"><button type="button" class="secondary-btn" data-restore-item="${item.id}">恢复</button><button type="button" class="text-btn" data-purge-item="${item.id}">永久删除</button></div></div>`;
+  }).join('') : '<p class="trash-empty">回收站是空的。</p>';
+}
+
+export { renderTrash };

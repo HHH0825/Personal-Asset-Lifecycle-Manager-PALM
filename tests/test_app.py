@@ -89,7 +89,101 @@ class PalmApiTest(unittest.TestCase):
         self.assertIsNone(self.client.get(f"/api/items/{item['id']}").json["photo_url"])
         self.assertEqual(self.client.post(path, data={"photo": (BytesIO(self.photo_bytes()), "good.png")}).status_code, 200)
         self.assertEqual(self.client.delete(f"/api/items/{item['id']}").status_code, 204)
+        self.assertEqual(len(list(Path(self.app.config["PHOTO_DIR"]).iterdir())), 1)
+        self.assertEqual(self.client.delete(f"/api/trash/{item['id']}").status_code, 204)
         self.assertEqual(list(Path(self.app.config["PHOTO_DIR"]).iterdir()), [])
+
+    def test_trash_restore_expiry_and_account_isolation(self):
+        from datetime import datetime, timezone
+        item = self.make_item(name="旧相机")
+        item_id = item["id"]
+        path = f"/api/items/{item_id}"
+        self.client.post(f"{path}/usage", json={"used_on": day(1), "notes": "拍照"})
+        self.assertEqual(self.client.delete(path).status_code, 204)
+        self.assertEqual(self.client.get(path).status_code, 404)
+        self.assertEqual(self.client.get("/api/stats").json["total_items"], 0)
+        self.assertEqual(self.client.post(f"{path}/usage/today").status_code, 404)
+        self.assertEqual(self.client.get(f"{path}/photo").status_code, 404)
+        self.assertEqual(self.client.get("/api/reports/monthly?month=" + day(1)[:7]).json["usage_count"], 0)
+        self.assertEqual(len(self.client.get("/api/trash").json), 1)
+        stranger = self.app.test_client()
+        self.auth(stranger, "stranger", register=True)
+        self.assertEqual(stranger.post(f"/api/trash/{item_id}/restore").status_code, 404)
+        self.assertEqual(stranger.delete(f"/api/trash/{item_id}").status_code, 404)
+        self.assertNotIn("旧相机", stranger.get("/api/exports/items.csv").data.decode("utf-8-sig"))
+        restored = self.client.post(f"/api/trash/{item_id}/restore")
+        self.assertEqual(restored.status_code, 200)
+        self.assertEqual(restored.json["usage_count"], 1)
+        self.assertEqual(self.client.get("/api/stats").json["total_items"], 1)
+        self.client.delete(path)
+        from contextlib import closing
+        with closing(sqlite3.connect(self.database)) as connection:
+            old = (datetime.now(timezone.utc) - timedelta(days=31)).isoformat(timespec="seconds")
+            connection.execute("UPDATE items SET deleted_at = ? WHERE id = ?", (old, item_id))
+            connection.commit()
+        self.assertEqual(self.client.get("/api/trash").json, [])
+        self.assertEqual(self.client.post(f"/api/trash/{item_id}/restore").status_code, 410)
+
+    def test_startup_purges_expired_trash_and_photo(self):
+        from datetime import datetime, timezone
+        item = self.make_item(name="过期旧物")
+        item_id = item["id"]
+        self.client.post(f"/api/items/{item_id}/photo",
+                         data={"photo": (BytesIO(self.photo_bytes()), "old.png")})
+        self.client.delete(f"/api/items/{item_id}")
+        photo_dir = Path(self.app.config["PHOTO_DIR"])
+        self.assertEqual(len(list(photo_dir.iterdir())), 1)
+        with closing(sqlite3.connect(self.database)) as connection:
+            old = (datetime.now(timezone.utc) - timedelta(days=31)).isoformat(timespec="seconds")
+            connection.execute("UPDATE items SET deleted_at = ? WHERE id = ?", (old, item_id))
+            connection.commit()
+        make_test_app({"TESTING": True, "DATABASE": self.database,
+                       "PHOTO_DIR": str(photo_dir)})
+        self.assertEqual(list(photo_dir.iterdir()), [])
+        self.assertEqual(self.client.post(f"/api/trash/{item_id}/restore").status_code, 410)
+
+    def test_csv_export_escapes_spreadsheet_formulas(self):
+        import csv
+        from io import StringIO
+        item = self.make_item(name="=1+1", notes="第一行,第二列\n@SUM(A1)")
+        sold = self.make_item(name="旧书", icon_type="books", purchase_price="10.00")
+        self.client.post(f"/api/items/{sold['id']}/disposal",
+                         json={"disposed_on": day(1), "method": "sold", "proceeds": "12.00", "notes": ""})
+        today_item = self.make_item(name="今天入手", purchase_date=day(), purchase_price="0.00")
+        response = self.client.get("/api/exports/items.csv")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data.startswith(b"\xef\xbb\xbf"))
+        rows = list(csv.reader(StringIO(response.data.decode("utf-8-sig"))))
+        formula_row = next(row for row in rows if row[0] == "'=1+1")
+        self.assertEqual(formula_row[2:4], ["其他", "使用中"])
+        self.assertEqual(formula_row[-1], "第一行,第二列\n@SUM(A1)")
+        self.assertEqual(next(row for row in rows if row[0] == "旧书")[3:4], ["已处置"])
+        self.assertEqual(next(row for row in rows if row[0] == "旧书")[8:10], ["12.00", "-2.00"])
+        self.assertEqual(next(row for row in rows if row[0] == "今天入手")[11:13], ["", ""])
+        self.client.delete(f"/api/items/{item['id']}")
+        exported = list(csv.reader(StringIO(self.client.get('/api/exports/items.csv').data.decode('utf-8-sig'))))
+        self.assertNotIn("'=1+1", [row[0] for row in exported[1:]])
+        self.assertEqual(len(exported), 3)
+
+    def test_monthly_report_event_dates_and_achievements(self):
+        item = self.make_item(purchase_date="2024-02-29", purchase_price="100.00")
+        path = f"/api/items/{item['id']}"
+        self.assertEqual(self.client.put(f"{path}/daily-target", json={"amount": "1.00"}).status_code, 200)
+        self.client.post(f"{path}/usage", json={"used_on": "2024-06-08", "notes": ""})
+        self.client.post(f"{path}/maintenance", json={"maintained_on": "2024-06-09", "cost": "7.00", "description": "换线"})
+        self.client.post(f"{path}/disposal", json={"disposed_on": "2024-07-01", "method": "sold", "proceeds": "10.00", "notes": ""})
+        feb = self.client.get("/api/reports/monthly?month=2024-02").json
+        self.assertEqual((feb["purchase_count"], feb["purchase_total"]), (1, "100.00"))
+        june = self.client.get("/api/reports/monthly?month=2024-06").json
+        self.assertEqual((june["purchase_count"], june["maintenance_total"], june["usage_count"]), (0, "7.00", 1))
+        self.assertEqual({entry["kind"] for entry in june["highlights"]}, {"milestone", "target"})
+        self.assertEqual(self.client.get("/api/reports/monthly?month=2024-07").json["proceeds_total"], "10.00")
+        self.client.delete(path)
+        self.assertEqual(self.client.get("/api/reports/monthly?month=2024-06").json["usage_count"], 0)
+        self.client.post(f"/api/trash/{item['id']}/restore")
+        self.assertEqual(self.client.get("/api/reports/monthly?month=2024-06").json["usage_count"], 1)
+        self.assertEqual(self.client.get("/api/reports/monthly?month=2024-13").status_code, 400)
+        self.assertEqual(self.client.get("/api/reports/monthly?month=9999-12").status_code, 400)
 
     def test_quick_usage_idempotent_and_pin_persists(self):
         item = self.make_item(status="idle")
@@ -505,6 +599,9 @@ class PalmApiTest(unittest.TestCase):
         self.assertEqual(archive.status_code, 200)
         self.assertEqual(archive.headers["Cache-Control"], "no-store")
         self.assertIn('id="app-shell"', archive.text)
+        self.assertIn('id="trash-view"', archive.text)
+        self.assertIn('data-view="trash"', archive.text)
+        self.assertNotIn('id="type-filter"', archive.text)
         self.assertNotIn('id="auth-form"', archive.text)
         self.client.post("/api/auth/logout")
         self.assertEqual(self.client.get("/").status_code, 200)

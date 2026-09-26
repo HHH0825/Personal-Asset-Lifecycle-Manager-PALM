@@ -26,6 +26,19 @@
 .account-form .auth-field { display:grid; grid-template-columns:minmax(0,1fr); gap:9px; min-width:0; margin-bottom:18px; color:#4b6650; font-size:12px; }
 .account-form .auth-field input { display:block; width:100%; min-width:0; min-height:42px; padding:10px 12px; border:1px solid #cdd8c8; border-radius:6px; background:#fffefa; color:var(--ink); font-size:13px; }
 .account-form .auth-field input:focus { outline:2px solid #9eac8c; outline-offset:1px; }
+.account-data-panel { margin-top:23px; }
+.trash-page-intro { margin:0 0 24px; padding:30px 32px; border:1px solid #d4dfcc; border-radius:13px; background:#edf1e7; }
+.trash-page-intro h2 { margin:8px 0; color:var(--ink); font:500 32px/1.3 "Songti SC",SimSun,serif; }
+.trash-page-intro p { max-width:660px; margin:0; color:var(--muted); font-size:12px; line-height:1.8; }
+.mobile-utility-nav { display:none; }
+.trash-heading { margin-top:32px; padding-top:22px; border-top:1px dashed var(--line); }
+.trash-heading .hint { margin:8px 0 18px; }
+.trash-row { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:15px 0; border-top:1px solid var(--line); }
+.trash-row strong { display:block; overflow-wrap:anywhere; color:var(--ink); }
+.trash-row small { display:block; margin-top:5px; color:var(--muted); line-height:1.6; }
+.trash-actions { display:flex; flex-wrap:wrap; gap:12px; flex:none; }
+.trash-empty { color:var(--muted); font-size:12px; }
+@media (max-width:650px) { .trash-row { align-items:flex-start; flex-direction:column; } }
 .avatar-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:20px; }
 .avatar-choice { position:relative; cursor:pointer; }
 .avatar-choice input { position:absolute; opacity:0; width:1px; height:1px; }
@@ -39,6 +52,11 @@
 @media (max-width:960px) { .account-grid { grid-template-columns:minmax(0,1fr); } }
 @media (max-width:650px) {
   .sidebar nav.sidebar-account-nav { display:none; }
+  .mobile-utility-nav { display:flex; width:100%; justify-content:flex-end; }
+  .mobile-trash-entry { min-height:36px; padding:7px 12px; border:1px solid #cdd8c8; border-radius:7px; background:var(--sheet); color:var(--ink); font-size:12px; }
+  .mobile-trash-entry.active { border-color:var(--ink); background:#e5ebdf; font-weight:700; }
+  .trash-page-intro { padding:22px; }
+  .trash-page-intro h2 { font-size:27px; }
   .account-intro { padding:20px; gap:14px; }
   .avatar-large { width:66px; height:66px; border-radius:17px; }
   .account-intro h2 { font-size:25px; }

@@ -14,6 +14,9 @@ def input_error(error):
 def not_found(_error):
     return jsonify(error="记录不存在"), 404
 
+def gone(error):
+    return jsonify(error=error.description), 410
+
 def avoid_cached_account_data(response):
     if request.path.startswith("/api/") or request.path in ("/", "/app", "/login", "/register"):
         response.headers["Cache-Control"] = "no-store"

@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/static/notebook-app.css">
   <link rel="stylesheet" href="/static/notebook-responsive.css">
   <link rel="stylesheet" href="/static/account.css">
+  <link rel="stylesheet" href="/static/report.css">
   <link rel="stylesheet" href="/static/dashboard-motion.css">
   <link rel="stylesheet" href="/static/analysis.css">
   <link rel="stylesheet" href="/static/archive-enhance.css">
@@ -29,6 +30,7 @@
       </nav>
       <nav class="sidebar-account-nav" aria-label="账号导航">
         <button class="nav-link" data-view="account"><span class="nav-index">04</span><span>个人设置</span></button>
+        <button class="nav-link" data-view="trash"><span class="nav-index">05</span><span>回收站</span></button>
       </nav>
       <div class="sidebar-foot"><span>PALM / PERSONAL ARCHIVE</span><br>留存购买、使用与去向。</div>
     </aside>
@@ -37,6 +39,7 @@
       <header class="topbar">
         <div><span class="eyebrow">个人资产档案 / <span id="section-number">01</span></span><h1 id="page-title">我的物品</h1></div>
         <div class="topbar-actions"><div class="account-controls"><button id="account-entry" class="account-entry" type="button" data-view="account" aria-label="打开个人设置"><span id="account-avatar" class="avatar avatar-small" data-avatar="sprout" aria-hidden="true"><svg><use href="/static/avatars.svg#sprout"></use></svg></span><span id="account-name"></span></button><button id="logout-btn" type="button" class="text-btn">退出登录</button></div><button class="primary-btn" id="add-item-btn"><span aria-hidden="true">＋</span> 添加物品</button></div>
+        <nav class="mobile-utility-nav" aria-label="常用入口"><button type="button" class="mobile-trash-entry" data-view="trash">回收站 ↗</button></nav>
       </header>
 
       <section id="dashboard-view" class="view hidden">
@@ -54,6 +57,7 @@
           <div class="cashflow-legend"><span><i class="legend-purchase"></i>购买支出</span><span><i class="legend-maintenance"></i>维修支出</span><span><i class="legend-proceeds"></i>处置回收</span></div>
           <div class="cashflow-scroll"><div id="monthly-chart" class="monthly-chart"></div></div>
           <p class="hint">本图仅显示近 12 个月，顶部累计金额仍包含全部历史记录。窄屏可左右滑动查看月份。</p>
+          <button type="button" class="secondary-btn report-entry" data-view="report">翻开月度回顾 ↗</button>
         </section>
 
         <div class="dashboard-columns">
@@ -76,12 +80,20 @@
         <p class="formula"><strong>计算方式</strong>　净成本 = 购买价格 + 维修费用 − 处置回收金额；持有天数从购买日算至处置日，未处置物品算至今天。</p>
       </section>
 
+      <section id="report-view" class="view hidden" aria-labelledby="report-heading">
+        <div class="report-intro"><div><span class="eyebrow">A MONTH IN YOUR NOTEBOOK</span><h2 id="report-heading">月度物品回顾</h2><p>从当前保存的记录重新整理；修改记录后，历史回顾也会变化。</p></div><button type="button" class="text-btn" data-view="dashboard">← 返回数据概览</button></div>
+        <div class="report-controls"><label>选择月份 <input id="report-month" type="month" aria-label="选择回顾月份"></label><button id="save-report" type="button" class="secondary-btn">保存回顾图片</button></div>
+        <div id="report-content" aria-live="polite"></div>
+      </section>
+
       <section id="items-view" class="view">
         <div class="list-intro"><div><span class="eyebrow">THE EVERYDAY COLLECTION</span><p>喜欢的物品，慢慢相伴。</p></div><span id="item-count" class="count-chip"></span></div>
         <div class="toolbar">
           <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="搜索名称或分类" aria-label="搜索名称或分类"></label>
           <select id="status-filter" aria-label="筛选状态"><option value="all">全部状态</option><option value="active">使用中</option><option value="idle">闲置</option><option value="disposed">已处置</option></select>
+          <select id="category-filter" aria-label="筛选分类"><option value="all">全部分类</option></select>
           <select id="sort-order" aria-label="物品排序"><option value="newest">最新添加</option><option value="holding_desc">持有时间最长</option><option value="holding_asc">持有时间最短</option><option value="price_desc">购买价格最高</option><option value="price_asc">购买价格最低</option><option value="daily_purchase_asc">购买价每天最低</option><option value="daily_net_asc">净成本每天最低</option></select>
+          <button id="clear-filters" type="button" class="text-btn">清除筛选</button>
         </div>
         <div id="items-list" class="items-list"></div>
       </section>
@@ -100,6 +112,16 @@
           <div class="account-forms"><section class="account-panel"><div class="section-heading"><div><span class="eyebrow">02 / 名字</span><h3>更改用户名</h3></div></div><form id="username-form" class="account-form"><label class="auth-field"><span>新用户名</span><input id="new-username" name="username" autocomplete="username" minlength="3" maxlength="32" required></label><label class="auth-field"><span>当前密码</span><input name="current_password" type="password" autocomplete="current-password" required></label><p class="hint">用户名用于登录；更新后请使用新名字登录。</p><button type="submit" class="primary-btn">保存用户名</button><p id="username-error" class="form-error hidden" role="alert"></p></form></section>
           <section class="account-panel"><div class="section-heading"><div><span class="eyebrow">03 / 安全</span><h3>更改密码</h3></div></div><form id="password-form" class="account-form"><label class="auth-field"><span>当前密码</span><input name="current_password" type="password" autocomplete="current-password" required></label><label class="auth-field"><span>新密码</span><input name="new_password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><label class="auth-field"><span>确认新密码</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><p class="hint">保存后，所有已登录页面都需要使用新密码重新登录。</p><button type="submit" class="primary-btn">更新密码</button><p id="password-error" class="form-error hidden" role="alert"></p></form></section></div>
         </div>
+        <section class="account-panel account-data-panel" aria-labelledby="account-data-heading">
+          <div class="section-heading"><div><span class="eyebrow">04 / 数据</span><h3 id="account-data-heading">我的数据</h3></div></div>
+          <p class="hint">导出当前账号的物品清单，包含已处置物品和各项费用。</p>
+          <button id="export-items" type="button" class="secondary-btn">导出 CSV 清单</button>
+        </section>
+      </section>
+
+      <section id="trash-view" class="view hidden" aria-labelledby="trash-heading">
+        <div class="trash-page-intro"><span class="eyebrow">05 / A SECOND CHANCE</span><h2 id="trash-heading">回收站</h2><p>暂时告别的物品，还可以再找回来。删除后保留 30 天；到期后将在启动程序或打开本页时清理。</p></div>
+        <section class="account-panel"><div class="section-heading"><div><span class="eyebrow">最近删除</span><h3>待决定的物品</h3></div></div><div id="trash-list" aria-live="polite"></div></section>
       </section>
 
       <section id="detail-view" class="view hidden"><button id="back-btn" class="text-btn back-btn">← 返回物品清单</button><div id="detail-content"></div></section>

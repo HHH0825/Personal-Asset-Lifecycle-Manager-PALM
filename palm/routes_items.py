@@ -1,5 +1,5 @@
 from flask import Blueprint, current_app, g, jsonify, request, send_from_directory
-from .photo import remove_photo_file, save_photo, delete_photo
+from .photo import save_photo, delete_photo
 from .repository import (item_row, list_item_rows, create_item, update_item, delete_item,
                          set_item_target, set_item_pin)
 from .services import item_payload, ensure_purchase_date
@@ -47,7 +47,7 @@ def item_detail(item_id):
     if request.method == "GET":
         return jsonify(item_payload(row, True))
     if request.method == "DELETE":
-        remove_photo_file(delete_item(item_id))
+        delete_item(item_id)
         return "", 204
     data = body()
     name = value(data, "name", "物品名称")

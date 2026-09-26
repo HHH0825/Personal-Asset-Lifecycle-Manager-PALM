@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS items (
     daily_target_cents INTEGER CHECK (daily_target_cents > 0),
     photo_key TEXT,
     is_pinned INTEGER NOT NULL DEFAULT 0 CHECK (is_pinned IN (0, 1)),
+    deleted_at TEXT,
     notes TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'idle', 'disposed')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -45,6 +46,11 @@ CREATE TABLE IF NOT EXISTS disposal_records (
     method TEXT NOT NULL CHECK (method IN ('sold', 'gifted', 'discarded', 'other')),
     proceeds_cents INTEGER NOT NULL CHECK (proceeds_cents >= 0),
     notes TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS trash_expired (
+    item_id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    expired_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
 CREATE INDEX IF NOT EXISTS idx_usage_item ON usage_records(item_id);

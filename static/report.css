@@ -1,0 +1,21 @@
+.report-entry { margin-top:17px; }
+.report-intro { display:flex; justify-content:space-between; align-items:start; gap:20px; margin-bottom:28px; padding:30px; border:1px solid #d4dfcc; border-radius:12px; background:#edf1e7; }
+.report-intro h2 { margin:9px 0; color:var(--ink); font:500 32px/1.3 "Songti SC",SimSun,serif; }
+.report-intro p { margin:0; color:var(--muted); font-size:12px; line-height:1.7; }
+.report-controls { display:flex; flex-wrap:wrap; align-items:end; gap:14px; margin-bottom:24px; }
+.report-controls label { display:grid; gap:7px; color:var(--muted); font-size:12px; }
+.report-controls input { min-height:43px; padding:8px 10px; border:1px solid var(--line); border-radius:7px; background:var(--sheet); color:var(--ink); }
+.report-sheet { border:1px solid var(--line); border-radius:13px; background:var(--sheet); padding:28px; }
+.report-sheet h3 { margin:0 0 5px; color:var(--ink); font:500 25px/1.35 "Songti SC",SimSun,serif; }
+.report-sheet p { color:var(--muted); line-height:1.7; }
+.report-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:23px 0; }
+.report-metrics div { padding:16px; border:1px solid #d9e1d3; border-radius:8px; background:#f5f7ee; }
+.report-metrics span { display:block; color:var(--muted); font-size:11px; }
+.report-metrics strong { display:block; margin-top:9px; overflow-wrap:anywhere; color:var(--ink); font:500 21px Georgia,serif; }
+.report-columns { display:grid; grid-template-columns:1fr 1fr; gap:25px; }
+.report-columns h4 { padding-bottom:9px; border-bottom:1px solid var(--line); color:var(--ink); }
+.report-list { display:grid; gap:9px; padding:0; list-style:none; }
+.report-list button { max-width:100%; overflow-wrap:anywhere; border:0; background:none; padding:2px 0; color:var(--ink); text-align:left; text-decoration:underline; text-decoration-color:#a8baa7; }
+.report-list small { display:block; color:var(--muted); }
+@media (max-width:900px) { .report-intro { flex-direction:column; padding:22px; }.report-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }.report-columns { grid-template-columns:1fr; } }
+@media (max-width:390px) { .report-metrics { grid-template-columns:1fr; } }

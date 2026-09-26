@@ -67,14 +67,14 @@ def list_item_rows(user_id, query=None, today=None, item_id=None):
              SELECT record.item_id, SUM(record.cost_cents) AS maintenance_cents
              FROM maintenance_records AS record
              JOIN items AS owner ON owner.id = record.item_id
-             WHERE owner.user_id = :owner GROUP BY record.item_id
+             WHERE owner.user_id = :owner AND owner.deleted_at IS NULL GROUP BY record.item_id
            ), uses AS (
              SELECT record.item_id, COUNT(*) AS usage_count,
                     MAX(record.used_on) AS last_used_on,
                     MAX(CASE WHEN record.used_on = :today THEN 1 ELSE 0 END) AS used_today
              FROM usage_records AS record
              JOIN items AS owner ON owner.id = record.item_id
-             WHERE owner.user_id = :owner GROUP BY record.item_id
+             WHERE owner.user_id = :owner AND owner.deleted_at IS NULL GROUP BY record.item_id
            )
            SELECT item.*, COALESCE(repairs.maintenance_cents, 0) AS maintenance_cents,
                   COALESCE(uses.usage_count, 0) AS usage_count,
@@ -86,7 +86,7 @@ def list_item_rows(user_id, query=None, today=None, item_id=None):
            LEFT JOIN repairs ON repairs.item_id = item.id
            LEFT JOIN uses ON uses.item_id = item.id
            LEFT JOIN disposal_records AS disposal ON disposal.item_id = item.id
-           WHERE item.user_id = :owner
+           WHERE item.user_id = :owner AND item.deleted_at IS NULL
              AND (:item_id IS NULL OR item.id = :item_id)
              AND (:pattern IS NULL OR item.name LIKE :pattern ESCAPE '\\'
                   OR item.category LIKE :pattern ESCAPE '\\')
@@ -118,7 +118,7 @@ def maintenance_rows(item_id):
 def event_row(table, record_id, user_id):
     return get_db().execute(
         f"SELECT record.* FROM {table} AS record JOIN items AS item ON item.id = record.item_id "
-        "WHERE record.id = ? AND item.user_id = ?", (record_id, user_id)
+        "WHERE record.id = ? AND item.user_id = ? AND item.deleted_at IS NULL", (record_id, user_id)
     ).fetchone()
 
 
@@ -133,7 +133,9 @@ def monthly_totals(user_id, first_month):
         owner_column = "event.user_id" if table == "items" else "owner.user_id"
         rows = get_db().execute(
             f"SELECT substr(event.{date_column}, 1, 7) AS month, SUM(event.{amount_column}) AS total "
-            f"FROM {source} WHERE {owner_column} = ? AND event.{date_column} >= ? "
+            f"FROM {source} WHERE {owner_column} = ? AND "
+            f"{('event' if table == 'items' else 'owner')}.deleted_at IS NULL "
+            f"AND event.{date_column} >= ? "
             f"GROUP BY substr(event.{date_column}, 1, 7)",
             (user_id, first_month + "-01"),
         )
@@ -145,7 +147,8 @@ def repair_totals(user_id):
     return get_db().execute(
         "SELECT item.id, item.name, item.icon_type, SUM(record.cost_cents) AS total "
         "FROM maintenance_records AS record JOIN items AS item ON item.id = record.item_id "
-        "WHERE item.user_id = ? GROUP BY item.id ORDER BY total DESC, item.id ASC", (user_id,)
+        "WHERE item.user_id = ? AND item.deleted_at IS NULL "
+        "GROUP BY item.id ORDER BY total DESC, item.id ASC", (user_id,)
     ).fetchall()
 
 
@@ -169,16 +172,11 @@ def update_item(item_id, user_id, name, category, icon_type, purchased, warranty
 
 
 def delete_item(item_id):
-    connection = get_db()
-    connection.execute("BEGIN IMMEDIATE")
-    try:
-        row = item_row(item_id)
-        connection.execute("DELETE FROM items WHERE id = ?", (item_id,))
-        connection.commit()
-    except Exception:
-        connection.rollback()
-        raise
-    return row["photo_key"]
+    from datetime import datetime, timezone
+    item_row(item_id)
+    get_db().execute("UPDATE items SET deleted_at = ? WHERE id = ? AND user_id = ?",
+                     (datetime.now(timezone.utc).isoformat(timespec="seconds"), item_id, g.user_id))
+    get_db().commit()
 
 
 def set_item_target(item_id, user_id, amount):
@@ -302,7 +300,7 @@ def delete_disposal(record_id, item_id):
         raise
 
 def item_row(item_id):
-    row = get_db().execute("SELECT * FROM items WHERE id = ? AND user_id = ?", (item_id, g.user_id)).fetchone()
+    row = get_db().execute("SELECT * FROM items WHERE id = ? AND user_id = ? AND deleted_at IS NULL", (item_id, g.user_id)).fetchone()
     if not row:
         from flask import abort
         abort(404)
