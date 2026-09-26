@@ -29,7 +29,7 @@ async function saveReportImage(report, isCurrent = () => true) {
   ctx.fillStyle = '#fffdf7'; ctx.fillRect(55, 55, 1090, 890);
   ctx.strokeStyle = '#d8ddd1'; ctx.strokeRect(55, 55, 1090, 890);
   const logo = new Image();
-  logo.src = '/static/palm-logo.svg';
+  logo.src = '/static/images/palm-logo.svg';
   await logo.decode();
   if (!isCurrent()) return;
   ctx.drawImage(logo, 100, 98, 68, 68);

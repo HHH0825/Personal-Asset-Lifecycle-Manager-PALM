@@ -66,7 +66,7 @@ class ArchitectureTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as isolated:
             destination = Path(isolated)
             shutil.copytree(ROOT / "palm", destination / "palm", ignore=shutil.ignore_patterns("__pycache__"))
-            for filename in ("app.py", "journey.py", "seed_demo.py"):
+            for filename in ("app.py", "seed_demo.py"):
                 shutil.copy2(ROOT / filename, destination / filename)
             result = subprocess.run(
                 [sys.executable, "-c", "import app, seed_demo; assert not __import__('pathlib').Path('instance').exists()"],

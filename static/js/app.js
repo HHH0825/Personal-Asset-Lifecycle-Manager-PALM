@@ -1,15 +1,15 @@
-import { $, todayLocal, escapeHtml } from './js/common.mjs';
-import { showToast, showToastAction, resetToast } from './js/feedback.mjs';
-import { renderAccountUser, saveAccountForm, resetAvatar, renderTrash } from './js/account.mjs';
-import { renderItems } from './js/items.mjs';
-import { renderDashboard } from './js/dashboard.mjs';
-import { renderReview } from './js/analysis.mjs';
-import { renderDetail, updateDisposalPreview } from './js/detail.mjs';
-import { renderReport, saveReportImage } from './js/report.mjs';
-import { openForm, resetFormState, releasePhotoPreview, handlePhotoInput, submitEntityForm } from './js/forms.mjs';
-import { configureApi, api } from './js/api.mjs';
-import { createDataStore } from './js/data-store.mjs';
-import { parseHash, listHash, viewHash } from './js/navigation.mjs';
+import { $, todayLocal, escapeHtml } from './common.mjs';
+import { showToast, showToastAction, resetToast } from './feedback.mjs';
+import { renderAccountUser, saveAccountForm, resetAvatar, renderTrash } from './account.mjs';
+import { renderItems } from './items.mjs';
+import { renderDashboard } from './dashboard.mjs';
+import { renderReview } from './analysis.mjs';
+import { renderDetail, updateDisposalPreview } from './detail.mjs';
+import { renderReport, saveReportImage } from './report.mjs';
+import { openForm, resetFormState, releasePhotoPreview, handlePhotoInput, submitEntityForm } from './forms.mjs';
+import { configureApi, api } from './api.mjs';
+import { createDataStore } from './data-store.mjs';
+import { parseHash, listHash, viewHash } from './navigation.mjs';
 
 let allItems = [];
 let currentItem = null;

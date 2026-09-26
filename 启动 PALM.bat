@@ -22,8 +22,8 @@ if not exist "%VENV_PY%" goto venv_error
 if errorlevel 1 goto venv_error
 if defined NEEDS_INSTALL goto install_dependencies
 
-rem Compare installed versions with requirements.txt and repair a missing or broken installation.
-"%VENV_PY%" -c "import importlib.metadata as m, sys; f=tuple(map(int,m.version('Flask').split('.')[:2])); p=tuple(map(int,m.version('Pillow').split('.')[:2])); sys.exit(0 if (3,1) <= f < (4,0) and (11,0) <= p < (13,0) else 1)" >nul 2>&1
+rem Check every pinned runtime dependency before starting.
+"%VENV_PY%" -c "import importlib.metadata as m, pathlib, sys; rows=(line.strip().split('==') for line in pathlib.Path('requirements-lock.txt').read_text(encoding='utf-8').splitlines() if line.strip() and not line.startswith('#')); sys.exit(0 if all(m.version(name)==version for name,version in rows) else 1)" >nul 2>&1
 if errorlevel 1 goto install_dependencies
 "%VENV_PY%" -m pip check >nul 2>&1
 if errorlevel 1 goto install_dependencies
@@ -31,7 +31,7 @@ goto launch
 
 :install_dependencies
 echo 正在安装或补全项目依赖，首次运行需要联网...
-"%VENV_PY%" -m pip install -r requirements.txt
+"%VENV_PY%" -m pip install -r requirements-lock.txt
 if errorlevel 1 goto install_error
 
 :launch
@@ -78,7 +78,7 @@ goto failed
 echo .venv 虚拟环境不完整或 Python 版本低于 3.10，请重建该环境后重试。
 goto failed
 :install_error
-echo 依赖安装失败。请检查网络和 requirements.txt，然后重试。
+echo 依赖安装失败。请检查网络和 requirements-lock.txt，然后重试。
 goto failed
 :app_error
 echo 服务启动失败。请查看上方错误信息，例如 5000 端口是否已被占用。

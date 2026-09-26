@@ -9,7 +9,7 @@ function renderAccountUser(user) {
   for (const selector of ['#account-avatar', '#profile-avatar']) {
     const el = $(selector);
     el.dataset.avatar = key;
-    el.innerHTML = `<svg aria-hidden="true"><use href="/static/avatars.svg#${key}"></use></svg>`;
+    el.innerHTML = `<svg aria-hidden="true"><use href="/static/images/avatars.svg#${key}"></use></svg>`;
   }
   $('#new-username').value = user.username;
   $('#avatar-options').innerHTML = Object.entries(avatarNames).map(([avatar, name]) => `<label class="avatar-choice"><input type="radio" name="avatar_key" value="${avatar}" ${key === avatar ? 'checked' : ''}><span class="avatar-choice-face">${avatarMarkup(avatar)}<span>${name}</span></span></label>`).join('');

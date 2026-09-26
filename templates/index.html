@@ -1,28 +1,28 @@
 {% extends 'base.html' %}
 {% block core_styles %}
-  <link rel="stylesheet" href="/static/style-app.css">
-  <link rel="stylesheet" href="/static/style-responsive.css">
+  <link rel="stylesheet" href="/static/css/style-app.css">
+  <link rel="stylesheet" href="/static/css/style-responsive.css">
 {% endblock %}
 {% block page_styles %}
-  <link rel="stylesheet" href="/static/notebook-app.css">
-  <link rel="stylesheet" href="/static/notebook-responsive.css">
-  <link rel="stylesheet" href="/static/account.css">
-  <link rel="stylesheet" href="/static/report.css">
-  <link rel="stylesheet" href="/static/dashboard-motion.css">
-  <link rel="stylesheet" href="/static/analysis.css">
-  <link rel="stylesheet" href="/static/archive-enhance.css">
+  <link rel="stylesheet" href="/static/css/notebook-app.css">
+  <link rel="stylesheet" href="/static/css/notebook-responsive.css">
+  <link rel="stylesheet" href="/static/css/account.css">
+  <link rel="stylesheet" href="/static/css/report.css">
+  <link rel="stylesheet" href="/static/css/dashboard-motion.css">
+  <link rel="stylesheet" href="/static/css/analysis.css">
+  <link rel="stylesheet" href="/static/css/archive-enhance.css">
 {% endblock %}
-{% block scripts %}<script src="/static/app.js" type="module"></script>{% endblock %}
+{% block scripts %}<script src="/static/js/app.js" type="module"></script>{% endblock %}
 {% block body_class %}archive-page{% endblock %}
 {% block content %}
-<div id="app-loading" class="app-loading" role="status"><img class="brand-mark" src="/static/palm-logo.svg" alt="" aria-hidden="true" width="42" height="42"><p>正在翻开你的手账…</p><button id="app-retry" class="secondary-btn hidden" type="button">重新加载</button></div>
+<div id="app-loading" class="app-loading" role="status"><img class="brand-mark" src="/static/images/palm-logo.svg" alt="" aria-hidden="true" width="42" height="42"><p>正在翻开你的手账…</p><button id="app-retry" class="secondary-btn hidden" type="button">重新加载</button></div>
   <div id="app-shell" class="app-shell hidden">
     <aside class="sidebar">
       <a class="brand" href="#items" data-view="items" aria-label="PALM 物品主页">
-        <img class="brand-mark" src="/static/palm-logo.svg" alt="" aria-hidden="true" width="42" height="42">
+        <img class="brand-mark" src="/static/images/palm-logo.svg" alt="" aria-hidden="true" width="42" height="42">
         <span class="brand-name">PALM<small>个人物品手账</small></span>
       </a>
-      <div class="sidebar-caption"><svg class="type-icon" aria-hidden="true"><use href="/static/icons.svg#sprout"></use></svg><span>把日常收好，<br>与喜欢的物品慢慢相伴。</span></div>
+      <div class="sidebar-caption"><svg class="type-icon" aria-hidden="true"><use href="/static/images/icons.svg#sprout"></use></svg><span>把日常收好，<br>与喜欢的物品慢慢相伴。</span></div>
       <nav aria-label="主导航">
         <button class="nav-link active" data-view="items"><span class="nav-index">01</span><span>物品档案</span></button>
         <button class="nav-link" data-view="dashboard"><span class="nav-index">02</span><span>数据概览</span></button>
@@ -38,7 +38,7 @@
     <main class="main-content">
       <header class="topbar">
         <div><span class="eyebrow">个人资产档案 / <span id="section-number">01</span></span><h1 id="page-title">我的物品</h1></div>
-        <div class="topbar-actions"><div class="account-controls"><button id="account-entry" class="account-entry" type="button" data-view="account" aria-label="打开个人设置"><span id="account-avatar" class="avatar avatar-small" data-avatar="sprout" aria-hidden="true"><svg><use href="/static/avatars.svg#sprout"></use></svg></span><span id="account-name"></span></button><button id="logout-btn" type="button" class="text-btn">退出登录</button></div><button class="primary-btn" id="add-item-btn"><span aria-hidden="true">＋</span> 添加物品</button></div>
+        <div class="topbar-actions"><div class="account-controls"><button id="account-entry" class="account-entry" type="button" data-view="account" aria-label="打开个人设置"><span id="account-avatar" class="avatar avatar-small" data-avatar="sprout" aria-hidden="true"><svg><use href="/static/images/avatars.svg#sprout"></use></svg></span><span id="account-name"></span></button><button id="logout-btn" type="button" class="text-btn">退出登录</button></div><button class="primary-btn" id="add-item-btn"><span aria-hidden="true">＋</span> 添加物品</button></div>
         <nav class="mobile-utility-nav" aria-label="常用入口"><button type="button" class="mobile-trash-entry" data-view="trash">回收站 ↗</button></nav>
       </header>
 
@@ -106,7 +106,7 @@
       </section>
 
       <section id="account-view" class="view hidden" aria-labelledby="account-heading">
-        <div class="account-intro"><div class="avatar avatar-large" id="profile-avatar" data-avatar="sprout" aria-hidden="true"><svg><use href="/static/avatars.svg#sprout"></use></svg></div><div><span class="eyebrow">YOUR LITTLE CORNER</span><h2 id="account-heading">我的个人设置</h2><p>换一个头像，也可以更新登录时使用的名字和密码。</p></div></div>
+        <div class="account-intro"><div class="avatar avatar-large" id="profile-avatar" data-avatar="sprout" aria-hidden="true"><svg><use href="/static/images/avatars.svg#sprout"></use></svg></div><div><span class="eyebrow">YOUR LITTLE CORNER</span><h2 id="account-heading">我的个人设置</h2><p>换一个头像，也可以更新登录时使用的名字和密码。</p></div></div>
         <div class="account-grid">
           <section class="account-panel account-avatar-panel"><div class="section-heading"><div><span class="eyebrow">01 / 头像</span><h3>选一张喜欢的头像</h3></div></div><p class="hint">选好后点击保存；恢复默认会显示新芽。</p><form id="avatar-form"><div id="avatar-options" class="avatar-options" role="radiogroup" aria-label="预设头像"></div><button type="submit" class="primary-btn">保存头像</button><button id="avatar-reset" type="button" class="text-btn">恢复默认</button><p id="avatar-error" class="form-error hidden" role="alert"></p></form></section>
           <div class="account-forms"><section class="account-panel"><div class="section-heading"><div><span class="eyebrow">02 / 名字</span><h3>更改用户名</h3></div></div><form id="username-form" class="account-form"><label class="auth-field"><span>新用户名</span><input id="new-username" name="username" autocomplete="username" minlength="3" maxlength="32" required></label><label class="auth-field"><span>当前密码</span><input name="current_password" type="password" autocomplete="current-password" required></label><p class="hint">用户名用于登录；更新后请使用新名字登录。</p><button type="submit" class="primary-btn">保存用户名</button><p id="username-error" class="form-error hidden" role="alert"></p></form></section>

@@ -2,7 +2,7 @@ from datetime import date
 from flask import g
 from .repository import item_summary, usage_rows, maintenance_rows, event_boundary, disposal_by_item
 from .validation import InputError, date_value, value, cents_value, money, daily_cost
-from journey import item_journey
+from .journey import item_journey
 
 def item_costs(purchase_cents, maintenance_cents, proceeds_cents, purchased, end):
     """Calculate a snapshot from plain values so the rules can be tested without a DB."""

@@ -29,3 +29,10 @@
   .archive-page .photo-upload-field { flex-wrap: wrap; }
   .archive-page .photo-preview-wrap { width: 100%; }
 }
+.inline-type-icon { display: inline-flex; width: 18px; height: 18px; margin-right: 6px; vertical-align: -3px; color: #52744c; }
+.inline-type-icon .type-icon { width: 18px; height: 18px; }
+@media (max-width: 370px) {
+  .archive-page .item-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 13px; }
+  .archive-page .item-card-metrics div:nth-child(3) { grid-column: 1 / -1; padding: 12px 0 0; border-left: 0; border-top: 1px solid #e0e5da; }
+  .archive-page .item-card-metrics strong { overflow-wrap: normal; white-space: nowrap; }
+}

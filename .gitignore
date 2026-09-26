@@ -3,3 +3,10 @@ __pycache__/
 .venv/
 instance/
 *.pyc
+node_modules/
+.npm-cache/
+playwright-report/
+test-results/
+dist/
+*.log
+.idea/

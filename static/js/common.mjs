@@ -5,11 +5,11 @@ const iconTypes = { digital: '数码', home: '家居', daily: '日常用品', cl
 const avatarNames = { sprout: '新芽', cat: '猫', book: '书', sun: '太阳', bike: '单车', star: '星星' };
 function avatarMarkup(key, className = 'avatar') {
   const avatar = Object.prototype.hasOwnProperty.call(avatarNames, key) ? key : 'sprout';
-  return `<span class="${className}" data-avatar="${avatar}" aria-hidden="true"><svg><use href="/static/avatars.svg#${avatar}"></use></svg></span>`;
+  return `<span class="${className}" data-avatar="${avatar}" aria-hidden="true"><svg><use href="/static/images/avatars.svg#${avatar}"></use></svg></span>`;
 }
 function iconMarkup(type) {
   const key = Object.prototype.hasOwnProperty.call(iconTypes, type) ? type : 'other';
-  return `<svg class="type-icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#${key}"></use></svg>`;
+  return `<svg class="type-icon" aria-hidden="true" focusable="false"><use href="/static/images/icons.svg#${key}"></use></svg>`;
 }
 function iconTile(type, className = 'item-icon') {
   const key = Object.prototype.hasOwnProperty.call(iconTypes, type) ? type : 'other';
@@ -21,7 +21,7 @@ function itemVisual(item, className = 'item-icon') {
     : iconTile(item.icon_type, className);
 }
 function decorativeIcon(name) {
-  return `<svg class="type-icon" aria-hidden="true"><use href="/static/icons.svg#${name}"></use></svg>`;
+  return `<svg class="type-icon" aria-hidden="true"><use href="/static/images/icons.svg#${name}"></use></svg>`;
 }
 const todayLocal = () => {
   const now = new Date();

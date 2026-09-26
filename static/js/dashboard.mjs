@@ -1,6 +1,6 @@
-import { $, statusNames, iconTypes, itemVisual, escapeHtml, yuan, badge, empty } from './common.mjs';
+import { $, statusNames, iconTypes, iconMarkup, itemVisual, escapeHtml, yuan, badge, empty } from './common.mjs';
 function renderRecentItems(allItems) {
-  $('#recent-items').innerHTML = allItems.length ? allItems.slice(0, 4).map((item) => `<div class="mini-item">${itemVisual(item, 'mini-icon')}<div class="mini-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${item.purchase_date}</small></div>${badge(item.status)}<span class="mini-price">${yuan(item.purchase_price)}</span></div>`).join('') : empty('还没有物品', '点击右上角“添加物品”开始记录。');
+  $('#recent-items').innerHTML = allItems.length ? allItems.slice(0, 4).map((item) => `<div class="mini-item">${itemVisual(item, 'mini-icon')}<div class="mini-main"><strong>${item.photo_url ? `<span class="inline-type-icon">${iconMarkup(item.icon_type)}</span>` : ''}${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other} · ${item.purchase_date}</small></div>${badge(item.status)}<span class="mini-price">${yuan(item.purchase_price)}</span></div>`).join('') : empty('还没有物品', '点击右上角“添加物品”开始记录。');
 }
 function renderDashboard(stats, insights, allItems) {
   const cards = [

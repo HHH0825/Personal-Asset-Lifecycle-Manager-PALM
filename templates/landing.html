@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% from '_macros.html' import brand, icon %}
-{% block core_styles %}<link rel="stylesheet" href="/static/style-responsive.css">{% endblock %}
+{% block core_styles %}<link rel="stylesheet" href="/static/css/style-responsive.css">{% endblock %}
 {% block page_styles %}
-  <link rel="stylesheet" href="/static/notebook-landing.css">
-  <link rel="stylesheet" href="/static/notebook-responsive.css">
-  <link rel="stylesheet" href="/static/landing-motion.css">
+  <link rel="stylesheet" href="/static/css/notebook-landing.css">
+  <link rel="stylesheet" href="/static/css/notebook-responsive.css">
+  <link rel="stylesheet" href="/static/css/landing-motion.css">
 {% endblock %}
-{% block scripts %}<script src="/static/landing.js" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/js/landing.js" defer></script>{% endblock %}
 {% block body_class %}landing-page{% endblock %}
 {% block content %}
 <header class="public-header page-width">
@@ -15,7 +15,7 @@
 </header>
 <main>
   <section class="landing-hero page-width">
-    <div class="hero-copy"><span class="eyebrow"><i class="little-dot"></i> 给日常，留一份自己的记录</span><h1>你拥有的每一件，<br>都值得<span class="marked-word">被记住<svg viewBox="0 0 270 16" aria-hidden="true"><path d="M3 10Q100-3 265 5M20 15Q170 3 240 10"/></svg></span>。</h1><p>那副听过很多首歌的耳机，那辆陪你走过小路的单车。<br class="desktop-break">在 PALM，记下它们的来路、花费，以及相伴的日子。</p><div class="hero-actions"><a class="primary-btn large-btn" href="/register">建立我的物品档案 <span aria-hidden="true">↗</span></a><a href="#try-it" class="quiet-link">先体验一下 <span aria-hidden="true">↓</span></a></div><div class="hero-note"><img class="tiny-stamp" src="/static/palm-logo.svg" alt="" aria-hidden="true" width="28" height="28"> 一件物品，一段自己的故事。</div></div>
+    <div class="hero-copy"><span class="eyebrow"><i class="little-dot"></i> 给日常，留一份自己的记录</span><h1>你拥有的每一件，<br>都值得<span class="marked-word">被记住<svg viewBox="0 0 270 16" aria-hidden="true"><path d="M3 10Q100-3 265 5M20 15Q170 3 240 10"/></svg></span>。</h1><p>那副听过很多首歌的耳机，那辆陪你走过小路的单车。<br class="desktop-break">在 PALM，记下它们的来路、花费，以及相伴的日子。</p><div class="hero-actions"><a class="primary-btn large-btn" href="/register">建立我的物品档案 <span aria-hidden="true">↗</span></a><a href="#try-it" class="quiet-link">先体验一下 <span aria-hidden="true">↓</span></a></div><div class="hero-note"><img class="tiny-stamp" src="/static/images/palm-logo.svg" alt="" aria-hidden="true" width="28" height="28"> 一件物品，一段自己的故事。</div></div>
     <div class="archive-scene" aria-label="示例物品档案插画">
       <span class="scene-caption">日 常 收 藏 / 示例</span><span class="scene-spark spark-one" aria-hidden="true">✳</span>
       <article class="scene-card scene-main"><span class="paper-tape" aria-hidden="true"></span><div class="scene-card-heading"><span class="item-icon" data-type="digital">{{ icon('headphones') }}</span><span class="badge active">使用中</span></div><h2>陪我通勤的耳机</h2><p>生活里的小小配乐</p><div class="scene-number">365 <span>天的陪伴</span></div><div class="scene-card-footer"><span>购买价 / 天</span><strong>¥1.00</strong></div></article>

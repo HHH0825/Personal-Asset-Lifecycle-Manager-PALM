@@ -1,7 +1,7 @@
 import unittest
 from datetime import date, timedelta
 
-from journey import item_journey
+from palm.journey import item_journey
 
 
 class JourneyTest(unittest.TestCase):

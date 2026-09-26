@@ -38,7 +38,7 @@ function renderItems(allItems) {
   $('#items-list').innerHTML = filtered.length ? filtered.map((item) => `
     <article class="item-card">
       <button type="button" class="item-card-open" data-open-item="${item.id}" aria-label="查看${escapeHtml(item.name)}详情"></button>
-      <div class="item-card-head">${itemVisual(item, 'item-icon')}<div class="item-main"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other}</small></div><div class="item-status">${badge(item.status)}</div></div>
+      <div class="item-card-head">${itemVisual(item, 'item-icon')}<div class="item-main"><strong>${item.photo_url ? `<span class="inline-type-icon">${iconMarkup(item.icon_type)}</span>` : ''}${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · ${iconTypes[item.icon_type] || iconTypes.other}</small></div><div class="item-status">${badge(item.status)}</div></div>
       <div class="item-purchase">购于 ${item.purchase_date}</div>
       <div class="item-card-metrics"><div><span>${item.status === 'disposed' ? '曾持有' : '已持有'}</span><strong>${item.holding_days} 天</strong></div><div><span>购买价/天</span><strong>${item.daily_purchase_cost === null ? '暂无' : yuan(item.daily_purchase_cost)}</strong></div><div><span>净成本/天</span><strong>${item.daily_net_cost === null ? '暂无' : yuan(item.daily_net_cost)}</strong></div></div>
       ${itemHint(item)}

@@ -1,0 +1,11 @@
+{
+  "name": "palm-browser-tests",
+  "private": true,
+  "scripts": {
+    "test:modules": "node --test tests/frontend.test.mjs",
+    "test:browser": "node --test tests/browser/palm.test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
