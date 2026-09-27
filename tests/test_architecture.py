@@ -75,6 +75,16 @@ class ArchitectureTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((destination / "instance").exists())
 
+    def test_static_es_modules_have_javascript_mime_on_windows(self):
+        with patch("mimetypes.guess_type", return_value=("text/plain", None)) as guess_type:
+            response = self.client.get("/static/js/common.mjs")
+        try:
+            self.assertTrue(guess_type.called)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.mimetype, "text/javascript")
+        finally:
+            response.close()
+
     def test_query_count_does_not_grow_per_item(self):
         self.add_items(2)
         before = {path: self.traced_get(path)[0] for path in ("/api/items", "/api/stats", "/api/insights")}

@@ -4,7 +4,7 @@ import os
 import secrets
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, request
 
 from .database import close_db, initialize_database
 from .security import input_error, not_found, gone, avoid_cached_account_data, protect_api
@@ -17,6 +17,14 @@ from .routes_trash import bp as trash_bp
 from .routes_exports import bp as exports_bp
 from .routes_reports import bp as reports_bp
 from .validation import InputError
+
+
+def javascript_module_mimetype(response):
+    """Serve ES modules consistently when Windows maps .mjs to text/plain."""
+    if (request.endpoint == "static" and request.path.lower().endswith(".mjs")
+            and response.status_code in (200, 304)):
+        response.mimetype = "text/javascript"
+    return response
 
 
 def create_app(test_config=None):
@@ -38,6 +46,7 @@ def create_app(test_config=None):
     app.register_error_handler(404, not_found)
     app.register_error_handler(410, gone)
     app.after_request(avoid_cached_account_data)
+    app.after_request(javascript_module_mimetype)
     app.before_request(protect_api)
     for blueprint in (pages_bp, account_bp, items_bp, events_bp, insights_bp, trash_bp, exports_bp, reports_bp):
         app.register_blueprint(blueprint)
