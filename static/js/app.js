@@ -92,6 +92,7 @@ async function bootstrap() {
     if (state.user) await showApp(state.user);
     else showAuth();
   } catch (error) {
+    console.error('PALM 页面初始化失败：', error);
     $('#app-loading p').textContent = '手账暂时没能打开，请检查服务后重试。';
     $('#app-retry').classList.remove('hidden');
   }

@@ -48,6 +48,30 @@ test('完整浏览器流程、账号隔离、失败重试和窄屏布局', { tim
   t.after(() => browser.close());
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
+  const browserErrors = [];
+  const pendingRequests = new Set();
+  const rememberError = (message) => {
+    browserErrors.push(message);
+    if (browserErrors.length > 20) browserErrors.shift();
+  };
+  const relevantRequest = (request) => /\/(?:api\/|static\/js\/)/.test(new URL(request.url()).pathname);
+  page.on('console', (message) => {
+    if (message.type() === 'error') rememberError(`console: ${message.text()}`);
+  });
+  page.on('pageerror', (error) => rememberError(`pageerror: ${error.stack || error.message}`));
+  page.on('request', (request) => {
+    if (relevantRequest(request)) pendingRequests.add(request);
+  });
+  page.on('requestfailed', (request) => {
+    pendingRequests.delete(request);
+    if (relevantRequest(request)) rememberError(`request failed: ${request.method()} ${request.url()} (${request.failure()?.errorText || 'unknown'})`);
+  });
+  page.on('response', (response) => {
+    pendingRequests.delete(response.request());
+    if (response.status() >= 400 && relevantRequest(response.request())) {
+      rememberError(`HTTP ${response.status()}: ${response.request().method()} ${response.url()}`);
+    }
+  });
   page.on('dialog', (dialog) => dialog.accept());
   const username = `测试用户${Date.now()}`;
   await page.goto(`${origin}/register`);
@@ -56,7 +80,18 @@ test('完整浏览器流程、账号隔离、失败重试和窄屏布局', { tim
   await page.locator('[name="confirm_password"]').fill('palm-browser-pass-123');
   await page.locator('#auth-submit').click();
   await page.waitForURL('**/app*');
-  await page.locator('#items-view').waitFor({ state: 'visible' });
+  try {
+    await page.locator('#items-view').waitFor({ state: 'visible' });
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      url: location.href,
+      loadingText: document.querySelector('#app-loading p')?.textContent,
+      retryVisible: !!document.querySelector('#app-retry') && getComputedStyle(document.querySelector('#app-retry')).display !== 'none',
+      shellClass: document.querySelector('#app-shell')?.className,
+      itemsClass: document.querySelector('#items-view')?.className,
+    })).catch((inspectionError) => ({ inspectionError: inspectionError.message }));
+    throw new Error(`${error.message}\n页面状态：${JSON.stringify(state)}\n浏览器错误：${browserErrors.join('\n') || '无'}\n未完成请求：${[...pendingRequests].map((request) => `${request.method()} ${request.url()}`).join('\n') || '无'}\n服务日志：${errorOutput.slice(-3000) || '无'}`);
+  }
   assert.match(await page.locator('#item-count').innerText(), /0 \/ 0/);
 
   await page.locator('#add-item-btn').click();
