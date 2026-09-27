@@ -1,0 +1,82 @@
+name: PALM Windows installer draft
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-release:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14.3'
+          architecture: x64
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install locked runtime and build tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-lock.txt "pyinstaller==6.22.3"
+          python -m pip check
+
+      - name: Run Python and frontend tests
+        run: |
+          python -m unittest discover -s tests -q
+          python -m unittest discover -s packaging/windows/tests -p "test_*.py" -q
+          npm install --no-package-lock --no-audit --no-fund
+          npm run test:modules
+
+      - name: Run browser regression
+        env:
+          PALM_BROWSER_CHANNEL: msedge
+        run: npm run test:browser
+
+      - name: Build Windows installer
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: pwsh
+        run: ./packaging/windows/build.ps1 -Version $env:RELEASE_TAG
+
+      - name: Smoke test the installed executable and migration
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          $installer = "packaging/windows/out/release/PALM-Setup-$env:RELEASE_TAG-windows-x64.exe"
+          python packaging/windows/tests/smoke_installed.py --exe packaging/windows/out/bundle/PALM/PALM.exe --installer $installer
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify release payload excludes personal data
+        shell: pwsh
+        run: |
+          $bundle = 'packaging/windows/out/bundle/PALM'
+          $forbidden = Get-ChildItem $bundle -Recurse -File | Where-Object {
+            $_.Name -eq 'palm.sqlite3' -or $_.Name -eq 'session.key' -or $_.FullName -match '\\uploads\\items\\'
+          }
+          if ($forbidden) { throw "打包目录中发现个人数据：$($forbidden.FullName -join ', ')" }
+
+      - name: Create draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          $base = "packaging/windows/out/release/PALM-Setup-$env:RELEASE_TAG-windows-x64.exe"
+          $existing = gh release view $env:RELEASE_TAG --json isDraft --jq '.isDraft' 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if ($existing -ne 'true') { throw '该标签的 Release 已发布，禁止覆盖安装包' }
+            gh release upload $env:RELEASE_TAG $base "$base.sha256" --clobber
+          } else {
+            gh release create $env:RELEASE_TAG $base "$base.sha256" --draft --verify-tag --title "PALM $env:RELEASE_TAG" --notes-file packaging/windows/RELEASE-NOTES.md
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
