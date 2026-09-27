@@ -46,13 +46,13 @@ def run_server(executable, data_dir, log_path):
     try:
         for _ in range(100):
             if process.poll() is not None:
-                raise RuntimeError(f"PALM 提前退出，退出码 {process.returncode}: {log_path.read_text(errors='replace')}")
+                raise RuntimeError(f"PALM 提前退出，退出码 {process.returncode}: {log_path.read_text(encoding='utf-8', errors='replace')}")
             try:
                 request(opener, "/api/auth/me")
                 return process, log, opener
             except (urllib.error.URLError, TimeoutError):
                 time.sleep(0.2)
-        raise RuntimeError(f"PALM 启动超时: {log_path.read_text(errors='replace')}")
+        raise RuntimeError(f"PALM 启动超时: {log_path.read_text(encoding='utf-8', errors='replace')}")
     except Exception:
         process.terminate()
         process.wait(timeout=10)
@@ -152,7 +152,7 @@ def main():
                            check=True, timeout=120)
             assert (data_dir / "palm.sqlite3").is_file(), "卸载误删了个人数据"
             assert (imported_dir / "palm.sqlite3").is_file(), "卸载误删了迁移数据"
-    print("安装版冒烟检查通过")
+    print("Installed PALM smoke checks passed")
 
 
 if __name__ == "__main__":

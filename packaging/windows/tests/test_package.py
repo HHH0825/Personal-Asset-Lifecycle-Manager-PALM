@@ -1,6 +1,7 @@
 """Tests for the installer adapter and its data migration, using temp data only."""
 
 import hashlib
+import io
 import os
 import sqlite3
 import sys
@@ -141,6 +142,31 @@ class PackageTests(unittest.TestCase):
         ):
             self.assertEqual(launcher.main(["--migrate"]), 0)
         self.assertFalse(self.destination.exists())
+
+    def test_startup_with_redirected_western_code_page(self):
+        with io.BytesIO() as output, io.BytesIO() as errors:
+            with io.TextIOWrapper(output, encoding="cp1252") as stdout, \
+                 io.TextIOWrapper(errors, encoding="cp1252") as stderr, \
+                 patch.object(sys, "stdout", stdout), patch.object(sys, "stderr", stderr), \
+                 patch.object(launcher, "make_server") as make_server, \
+                 patch.dict(os.environ, {"PALM_PACKAGE_DATA_DIR": str(self.destination)}):
+                self.assertEqual(launcher.main(["--no-browser"]), 0)
+                make_server.return_value.serve_forever.assert_called_once()
+                make_server.return_value.server_close.assert_called_once()
+                stdout.flush()
+                self.assertIn("PALM 本地访问地址", output.getvalue().decode("utf-8"))
+                self.assertIn("Ctrl+C", output.getvalue().decode("utf-8"))
+
+    def test_migration_error_with_redirected_western_code_page(self):
+        with io.BytesIO() as output, io.BytesIO() as errors:
+            with io.TextIOWrapper(output, encoding="cp1252") as stdout, \
+                 io.TextIOWrapper(errors, encoding="cp1252") as stderr, \
+                 patch.object(sys, "stdout", stdout), patch.object(sys, "stderr", stderr), \
+                 patch.object(launcher, "migrate_instance", side_effect=MigrationError("旧数据校验失败")), \
+                 patch.dict(os.environ, {"PALM_PACKAGE_DATA_DIR": str(self.destination)}):
+                self.assertEqual(launcher.main(["--migrate-from", str(self.source)]), 1)
+                stderr.flush()
+                self.assertIn("操作失败：旧数据校验失败", errors.getvalue().decode("utf-8"))
 
     def test_port_conflict_does_not_open_browser_or_write_data(self):
         with patch.object(launcher, "make_server", side_effect=OSError("occupied")), \

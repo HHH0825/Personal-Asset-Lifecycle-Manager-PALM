@@ -73,6 +73,11 @@ def run_service(open_browser=True):
 
 
 def main(argv=None):
+    # Redirected Windows output may default to a code page without Chinese.
+    # Configure the actual streams; frozen executables need this too.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(description="PALM Windows 安装版")
     parser.add_argument("--migrate", action="store_true", help="选择旧版 instance 并迁移")
     parser.add_argument("--migrate-from", metavar="DIRECTORY", help="从指定旧版 instance 迁移")
