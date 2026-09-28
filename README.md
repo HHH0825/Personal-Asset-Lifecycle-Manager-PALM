@@ -1,6 +1,8 @@
-# PALM：个人物品资产生命周期管理平台
+<p align="center">
+  <img src="static/images/palm-logo.svg" alt="PALM Logo：手账里长出新芽" width="96">
+</p>
 
-![PALM Logo：手账里长出新芽](static/images/palm-logo.svg)
+<h1 align="center">PALM：个人物品资产生命周期管理平台</h1>
 
 PALM 是本地运行的个人物品手账。按账号记录购买、使用、维修、闲置、处置、照片与回收站，并查看日均成本、月度回顾和智能分析。技术栈为 Flask、SQLite、HTML、CSS 和原生 JavaScript；日常运行只需 Python 3.10 或更新版本。
 
