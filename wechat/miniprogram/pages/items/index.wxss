@@ -1,0 +1,29 @@
+
+.collection-toolbar .add-button { flex: 0 0 82px; width: 82px; max-width: 82px; min-width: 0; padding: 8px 10px; }
+.filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 10px; }
+.search-wrap { flex: 1; display: flex; align-items: center; min-width: 130px; background: var(--paper); border-radius: 9px; padding: 0 9px; border: 0.5px solid var(--line); }
+.search-symbol { font-size: 17px; color: var(--muted); margin-right: 6px; }
+.search { flex: 1; width: 0; min-height: 44px; font-size: 12.5px; }
+.search-placeholder { color: var(--muted); }
+.select { display: flex; align-items: center; justify-content: space-between; min-height: 44px; box-sizing: border-box; background: var(--paper); border: 0.5px solid var(--line); padding: 8px 10px; border-radius: 9px; font-size: 12.5px; white-space: nowrap; }
+.result-count { margin: 6px 0; }
+.item-card { padding: 13px; margin: 10px 0; }
+.item-top { display: flex; align-items: center; gap: 9px; }
+.item-art { flex: none; width: 40px; height: 40px; }
+.thumbnail { width: 40px; height: 40px; border-radius: 11px; background: var(--blue-soft); }
+.item-summary { flex: 1; min-width: 0; }
+.item-name { font-size: 15.5px; }
+.item-category { font-size: 11.5px; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+.pin-note { color: var(--accent); }
+.item-metrics { display: flex; gap: 0; padding: 9px 0; margin: 12.5px 0 11.5px; border-radius: 8px; background: var(--ledger); }
+.item-metrics .metric { padding: 0 8px; box-sizing: border-box; }
+.item-metrics .metric + .metric { border-left: 0.5px solid var(--line); }
+.item-metrics .metric-value { font-size: 15.5px; }
+.item-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 3px 7px; padding-top: 8.5px; border-top: 0.5px solid var(--line); font-size: 10.5px; color: var(--muted); }
+@media (max-width: 350px) { .item-card { padding: 11px; } .item-top { gap: 6px; } .item-metrics .metric { padding: 0 6px; } .item-metrics .metric-value { font-size: 12px; } .item-metrics .metric-label { font-size: 10px; } }
+@media (max-width: 350px) { .item-metrics .metric:first-child { flex: .75; } }
+
+.collection-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -6px 0 14px; }
+.collection-tag { color: var(--yellow-ink); font-size: 11px; padding: 5px 10px; background: var(--yellow); border-radius: 7px; transform: rotate(-2deg); }
+.collection-toolbar .add-button { margin: 0; }
+.item-card { border-bottom: 2px solid var(--line); }

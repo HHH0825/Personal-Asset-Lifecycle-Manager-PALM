@@ -1,0 +1,1 @@
+{ "desc": "物物记私人物品数据不参与搜索", "rules": [{ "action": "disallow", "page": "*" }] }

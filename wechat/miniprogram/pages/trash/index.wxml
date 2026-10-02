@@ -1,0 +1,8 @@
+<view class="page">
+  <view class="page-heading heading-layout"><view class="heading-copy"><view class="eyebrow">物物记 · 暂时告别</view><view class="title">回收站</view><view class="subtitle">保留 30 天，给每次告别留一点余地。</view></view><image class="heading-cat" src="/assets/stickers/keepsake.png" mode="aspectFit" aria-hidden="true"/></view>
+  <view wx:if="{{error}}" class="card error-panel">{{error}}<button class="button light" hover-class="button-hover" bindtap="load">重新读取</button></view>
+  <view wx:elif="{{loading}}" class="empty"><text class="empty-mark">· · ·</text>正在整理回收站…</view>
+  <view wx:elif="{{items.length === 0}}" class="empty"><image class="empty-cat" src="/assets/stickers/keepsake.png" mode="aspectFit" aria-hidden="true"/><text class="empty-title">这里空空的，真好。</text>暂时没有需要恢复的物品。</view>
+  <block wx:else><view wx:for="{{items}}" wx:key="id" class="card trash-card"><view class="trash-top"><view class="icon">{{item.icon}}</view><view class="trash-info"><view class="item-name">{{item.name}}</view><view class="muted">{{item.category}} · {{item.deletedDay}} 移入</view></view></view><view class="expiry-row"><text>保留至 {{item.expiresDay}}</text><text class="expiry-note">到期后永久清理</text></view><view class="trash-actions"><button class="button mint" hover-class="button-hover" data-id="{{item.id}}" bindtap="restore">恢复物品</button><button class="button warn" hover-class="button-hover" data-id="{{item.id}}" bindtap="remove">永久删除</button></view></view></block>
+  <view class="muted cleanup-note">启动服务或打开回收站时清理到期物品。永久删除会同时移除相关记录与照片。</view>
+</view>

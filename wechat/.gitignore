@@ -1,0 +1,7 @@
+instance/
+.venv/
+__pycache__/
+*.pyc
+*.log
+.env
+project.private.config.json

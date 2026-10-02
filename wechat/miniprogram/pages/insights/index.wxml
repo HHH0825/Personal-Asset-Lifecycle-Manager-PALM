@@ -1,0 +1,12 @@
+<view class="page">
+  <view class="page-heading heading-layout"><view class="heading-copy"><view class="eyebrow">物物记 · 从记录中发现</view><view class="row"><view class="title">小小发现</view><text class="pill">基于规则生成</text></view><view class="subtitle">回头看看，你和物品一起度过的日子。</view></view><view class="discovery-art" aria-hidden="true"><image class="heading-cat" src="/assets/stickers/journal.png" mode="aspectFit"/><text class="discovery-stamp">生活收藏</text></view></view>
+  <view wx:if="{{error}}" class="card error-panel">{{error}}<button class="button light" hover-class="button-hover" bindtap="load">重新整理</button></view>
+  <view wx:elif="{{loading}}" class="empty"><text class="empty-mark">· · ·</text>正在整理记录…</view>
+  <block wx:else>
+    <view class="card totals"><view class="total-main"><view><text class="metric-label">我的物品</text><view class="total-number">{{stats.total_items}}<text class="metric-unit">件</text></view></view><view class="total-cost"><text class="metric-label">累计净成本</text><text class="total-number">¥{{stats.net_cost_total}}</text></view></view><view class="total-breakdown"><view><text class="metric-label">购买支出</text><text class="breakdown-value">¥{{stats.purchase_total}}</text></view><view><text class="metric-label">维修支出</text><text class="breakdown-value">¥{{stats.maintenance_total}}</text></view><view><text class="metric-label">处置回收</text><text class="breakdown-value">¥{{stats.disposal_total}}</text></view></view></view>
+    <view class="section-head"><text class="section-title">值得留意的事</text><text class="section-note">来自你的记录</text></view>
+    <view wx:if="{{cards.length === 0}}" class="empty"><image class="empty-cat" src="/assets/stickers/journal.png" mode="aspectFit" aria-hidden="true"/><text class="empty-title">故事才刚刚开始</text>录入物品、记下使用，就会慢慢有新的发现。</view>
+    <view wx:for="{{cards}}" wx:key="key" class="card analysis-card analysis-{{item.kind}}"><view class="analysis-label"><view class="analysis-dot"></view><text>{{item.label}}</text></view><view class="headline">{{item.headline}}</view><view class="analysis-basis"><text class="basis-label">计算依据</text><view>{{item.explanation}}</view></view><view wx:if="{{item.items.length}}" class="links"><view wx:for="{{item.items}}" wx:for-item="entry" wx:key="id" class="link" data-id="{{entry.id}}" bindtap="open"><text>{{entry.icon}}</text><text class="link-name">{{entry.name}}</text><text class="link-arrow">›</text></view></view></view>
+    <view class="analysis-note">使用记录可能不完整，分析只供核对，不会自动改变物品状态。</view>
+  </block>
+</view>

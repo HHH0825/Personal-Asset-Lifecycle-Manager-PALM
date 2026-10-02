@@ -1,0 +1,16 @@
+.me-page .profile-hero { display: flex; align-items: center; width: 100%; box-sizing: border-box; position: relative; padding: 20px 16px; gap: 12px; margin: 18px 0 0; background: var(--paper); color: var(--ink); text-align: left; line-height: 1.5; border: .5px solid var(--line); border-radius: var(--radius); box-shadow: 3px 4px 0 rgba(73, 59, 53, .04); }
+.profile-hero::after { border: 0; }
+.profile-hero::before { content: ''; position: absolute; top: -5px; left: 27px; width: 44px; height: 12px; background: var(--lavender); transform: rotate(-5deg); border-radius: 2px; pointer-events: none; }
+.profile-avatar { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: var(--bg); color: var(--lavender-ink); font-size: 24px; border: .5px solid var(--line); border-radius: 16px; flex: none; }
+.profile-info { flex: 1; min-width: 0; }
+.profile-name { font-size: 17px; font-weight: 600; line-height: 1.4; margin-bottom: 5px; overflow-wrap: anywhere; }
+.profile-caption { font-size: 12px; color: var(--muted); font-weight: 400; }
+.me-page .profile-hover { background: var(--ledger); }
+.me-page .section-head { margin-top: 27px; }
+.me-page .menu { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px; background: var(--paper); color: var(--ink); text-align: left; line-height: 1.5; font-weight: 400; }
+.menu::after { border: 0; }
+.menu-title { font-size: 14.5px; font-weight: 500; margin-bottom: 4px; }
+.menu-arrow { color: var(--accent); font-size: 22px; flex: none; }
+.account-footer { margin-top: 28px; }
+.account-note { text-align: center; color: var(--muted); font-size: 11px; margin-top: 12px; }
+@media (max-width: 350px) { .me-page .profile-hero { padding: 17px 12px; gap: 10px; } .profile-name { font-size: 16px; } }

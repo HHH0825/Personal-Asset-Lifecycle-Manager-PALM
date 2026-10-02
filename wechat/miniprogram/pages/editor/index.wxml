@@ -1,0 +1,23 @@
+<view class="page">
+  <view class="page-heading heading-layout"><view class="heading-copy"><view class="eyebrow">物物记 · 物品档案</view><view class="title">{{itemId ? '编辑物品' : '添加物品'}}</view><view class="subtitle">从拥有的那一天开始，留下它的故事。</view></view><image class="heading-cat" src="/assets/stickers/camera.png" mode="aspectFit" aria-hidden="true"/></view>
+  <view wx:if="{{loading}}" class="empty"><text class="empty-mark">· · ·</text>正在读取档案…</view>
+  <view wx:elif="{{loadFailed}}" class="card error-panel">{{error}}<button class="button light" hover-class="button-hover" bindtap="load">重新读取</button></view>
+  <block wx:else>
+    <view class="card form-card"><view class="form-group-title tone-holding">01　基本信息</view>
+      <view class="field"><text class="field-label">物品名称</text><input class="{{focusField === 'name' ? 'is-focused' : ''}}" maxlength="120" value="{{form.name}}" data-key="name" bindinput="input" bindfocus="focus" bindblur="blur" cursor-spacing="24" placeholder="例如：一起去旅行的相机" placeholder-class="field-placeholder" aria-label="物品名称"/></view>
+      <view class="field"><text class="field-label">分类</text><input class="{{focusField === 'category' ? 'is-focused' : ''}}" maxlength="60" value="{{form.category}}" data-key="category" bindinput="input" bindfocus="focus" bindblur="blur" cursor-spacing="24" placeholder="自由填写，如：摄影器材" placeholder-class="field-placeholder" aria-label="分类"/></view>
+      <view class="field"><text class="field-label">物品类型</text><picker range="{{types}}" value="{{typeIndex}}" bindchange="typeChange"><view class="picker"><text>{{types[typeIndex]}}</text><text class="picker-caret">⌄</text></view></picker></view>
+      <view wx:if="{{form.status !== 'disposed'}}" class="field"><text class="field-label">当前状态</text><picker range="{{statuses}}" value="{{statusIndex}}" bindchange="statusChange"><view class="picker"><text>{{statuses[statusIndex]}}</text><text class="picker-caret">⌄</text></view></picker></view>
+    </view>
+    <view class="card form-card"><view class="form-group-title tone-purchase">02　购买与保修</view>
+      <view class="field"><text class="field-label">购买日期</text><picker mode="date" value="{{form.purchase_date}}" end="{{today}}" bindchange="input" data-key="purchase_date"><view class="picker"><text>{{form.purchase_date}}</text><text class="picker-caret">⌄</text></view></picker></view>
+      <view class="field"><text class="field-label">购买价格 <text class="optional">元</text></text><input class="{{focusField === 'purchase_price' ? 'is-focused' : ''}}" type="digit" value="{{form.purchase_price}}" data-key="purchase_price" bindinput="input" bindfocus="focus" bindblur="blur" cursor-spacing="24" placeholder="0.00" placeholder-class="field-placeholder" aria-label="购买价格"/></view>
+      <view class="field"><view class="warranty-label"><text class="field-label">保修到期日 <text class="optional">可选</text></text><text wx:if="{{form.warranty_expires_on}}" class="clear-date" bindtap="clearWarranty">清空</text></view><picker mode="date" value="{{form.warranty_expires_on || form.purchase_date}}" start="{{form.purchase_date}}" bindchange="input" data-key="warranty_expires_on"><view class="picker"><text>{{form.warranty_expires_on || '选择日期'}}</text><text class="picker-caret">⌄</text></view></picker><view class="field-note">填写后，“发现”会提醒你留意保修期限。</view></view>
+    </view>
+    <view class="card form-card"><view class="form-group-title tone-net">03　照片与备注</view>
+      <view class="photo-choice" bindtap="choosePhoto"><image wx:if="{{photoPath}}" class="preview" src="{{photoPath}}" mode="aspectFill"/><view wx:else class="photo-placeholder">＋</view><view><view class="photo-label">{{photoPath ? '重新选择照片' : '为它留一张照片'}}</view><view class="muted small">可选 · 相册或拍照</view></view></view>
+      <view class="field"><text class="field-label">备注 <text class="optional">可选</text></text><textarea class="{{focusField === 'notes' ? 'is-focused' : ''}}" maxlength="1000" value="{{form.notes}}" data-key="notes" bindinput="input" bindfocus="focus" bindblur="blur" cursor-spacing="24" placeholder="记下与它有关的事" placeholder-class="field-placeholder" aria-label="备注"/></view>
+    </view>
+    <view class="form-footer"><view wx:if="{{error}}" class="card error-panel">{{error}}</view><button class="button block" hover-class="button-hover" bindtap="save" loading="{{busy}}" disabled="{{busy}}">保存物品</button></view>
+  </block>
+</view>

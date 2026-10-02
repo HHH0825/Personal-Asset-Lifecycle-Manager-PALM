@@ -1,0 +1,8 @@
+.warranty-label { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.clear-date { color: var(--accent); font-size: 11.5px; padding: 4px 0 4px 10px; }
+.photo-choice { display: flex; align-items: center; gap: 11px; padding: 5px 0; }
+.preview, .photo-placeholder { width: 60px; height: 60px; border-radius: 10px; flex: none; }
+.photo-placeholder { background: var(--ledger); color: var(--ink-soft); text-align: center; line-height: 60px; font-size: 21px; }
+.photo-label { font-size: 14px; color: var(--ink); margin-bottom: 3px; }
+.form-group-title.tone-purchase { background: var(--mint); color: var(--mint-ink); }
+.form-group-title.tone-net { background: var(--lavender); color: var(--lavender-ink); }

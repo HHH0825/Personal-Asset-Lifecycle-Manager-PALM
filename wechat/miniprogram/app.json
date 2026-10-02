@@ -1,0 +1,24 @@
+{
+  "pages": [
+    "pages/items/index", "pages/insights/index", "pages/me/index",
+    "pages/login/index", "pages/item/index", "pages/editor/index",
+    "pages/record/index", "pages/trash/index", "pages/profile/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "物物记",
+    "navigationBarBackgroundColor": "#FFF8EF",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FFF8EF"
+  },
+  "tabBar": {
+    "color": "#806D63", "selectedColor": "#B64F3D",
+    "backgroundColor": "#FFFFFF", "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/items/index", "text": "物品" },
+      { "pagePath": "pages/insights/index", "text": "发现" },
+      { "pagePath": "pages/me/index", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

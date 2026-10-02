@@ -1,0 +1,17 @@
+[Unit]
+Description=PALM WeChat mini program API
+After=network-online.target
+
+[Service]
+Type=simple
+User=palm
+Group=palm
+WorkingDirectory=/opt/palm-wechat/backend
+EnvironmentFile=/etc/palm-wechat.env
+Environment=TZ=Asia/Shanghai
+ExecStart=/opt/palm-wechat/.venv/bin/gunicorn --workers 1 --bind 127.0.0.1:5001 wsgi:application
+Restart=on-failure
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
