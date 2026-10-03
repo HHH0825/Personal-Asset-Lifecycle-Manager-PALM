@@ -6,3 +6,4 @@
 .trash-actions { display: flex; gap: 7px; }
 .trash-actions .button { flex: 1; font-size: 13px; }
 .cleanup-note { line-height: 1.7; font-size: 11.5px; margin-top: 13px; }
+.trash-card { border-left: 3px solid var(--tape); }

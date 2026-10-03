@@ -1,0 +1,15 @@
+<view class="page monthly-page"><paper-background theme="small"/>
+  <view class="eyebrow">物物记 · 每月一页</view><view class="title">收藏小报</view>
+  <picker mode="date" fields="month" value="{{month}}" end="{{maxMonth}}" bindchange="changeMonth"><view class="month-select">{{month || '当前月份'}}<text>选择月份 ⌄</text></view></picker>
+  <view wx:if="{{loading}}" class="empty">正在整理当月记录…</view>
+  <view wx:elif="{{error}}" class="card error-panel">{{error}}<button class="button light" bindtap="load">重新读取</button></view>
+  <block wx:elif="{{report}}"><view class="card report-paper"><view class="report-dateline">{{report.is_current ? '截至今天 · ' : '记录截止 · '}}{{report.cutoff_date}}</view>
+    <view class="report-totals"><view><text>购入物品</text><text>{{report.totals.purchase_count}} 件</text></view><view><text>购置支出</text><text>¥{{report.totals.purchase_total}}</text></view><view><text>维修支出</text><text>¥{{report.totals.maintenance_total}}</text></view><view><text>处置回收</text><text>¥{{report.totals.disposal_total}}</text></view><view><text>记录的使用</text><text>{{report.totals.usage_count}} 次</text></view></view>
+    <view wx:if="{{!report.has_activity}}" class="empty">这个月还没有记录。<button class="button light" bindtap="add">添加物品</button></view>
+    <view class="section-head"><text class="section-title">本月购入</text><text class="section-note">{{report.purchases.length}} 件</text></view><view wx:if="{{!report.purchases.length}}" class="journal-note">没有购入记录。</view>
+    <view wx:for="{{report.purchases}}" wx:key="id" class="journal-entry" data-id="{{item.id}}" bindtap="open"><view class="journal-entry-name">{{item.name}} ›</view><view class="journal-caption">{{item.purchase_date}} · ¥{{item.purchase_price}}</view></view>
+    <view class="section-head"><text class="section-title">本月陪伴</text></view><view wx:if="{{!report.memories.length}}" class="journal-note">没有达成的纪念。</view><view wx:for="{{report.memories}}" wx:key="key" class="journal-entry" data-id="{{item.item_id}}" bindtap="open"><view class="journal-caption">{{item.date}} · {{item.label}}</view><view class="journal-entry-name">{{item.name}} ›</view></view>
+  </view><view class="journal-note">费用和次数按事件日期归月。历史结果根据当前保存的记录重新计算，更正记录、修改目标、删除或恢复物品后会变化。</view>
+  <view class="export-actions"><button class="button light" bindtap="preview" disabled="{{imageBusy}}">预览图片</button><button class="button" bindtap="saveImage" disabled="{{imageBusy}}" loading="{{imageBusy}}">保存到相册</button></view><view wx:if="{{imageError}}" class="error" role="alert">{{imageError}}</view>
+  </block><canvas type="2d" id="report-canvas" class="report-canvas" aria-hidden="true"/>
+</view>

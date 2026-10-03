@@ -1,4 +1,5 @@
 <view class="page">
+  <paper-background theme="small" />
   <view class="page-heading heading-layout"><view class="heading-copy"><view class="eyebrow">物物记 · 生命周期</view><view class="title">{{kind === 'usage' ? '使用记录' : kind === 'maintenance' ? '维修记录' : '处置记录'}}</view><view class="subtitle">{{kind === 'usage' ? '用过的日子，也值得记住。' : kind === 'maintenance' ? '记下修复，也记下继续陪伴的成本。' : '好好记录，这一次的告别。'}}</view></view><image class="heading-cat" src="/assets/stickers/journal.png" mode="aspectFit" aria-hidden="true"/></view>
   <view wx:if="{{loading}}" class="empty"><text class="empty-mark">· · ·</text>正在读取记录…</view>
   <view wx:elif="{{loadFailed}}" class="card error-panel">{{error}}<button class="button light" hover-class="button-hover" bindtap="load">重新读取</button></view>

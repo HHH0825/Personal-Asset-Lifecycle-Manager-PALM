@@ -4,5 +4,9 @@
 .preview, .photo-placeholder { width: 60px; height: 60px; border-radius: 10px; flex: none; }
 .photo-placeholder { background: var(--ledger); color: var(--ink-soft); text-align: center; line-height: 60px; font-size: 21px; }
 .photo-label { font-size: 14px; color: var(--ink); margin-bottom: 3px; }
-.form-group-title.tone-purchase { background: var(--mint); color: var(--mint-ink); }
-.form-group-title.tone-net { background: var(--lavender); color: var(--lavender-ink); }
+.photo-copy { flex: 1; min-width: 0; }
+.photo-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.photo-actions .button { margin: 0; font-size: 13px; padding: 8px 12px; }
+.photo-error { margin-top: 10px; font-size: 12px; line-height: 1.6; color: var(--danger); overflow-wrap: anywhere; }
+.photo-error .button { margin: 7px 0 0; }
+.photo-edit-canvas { position: absolute; left: -10000px; top: 0; width: 1px; height: 1px; pointer-events: none; }

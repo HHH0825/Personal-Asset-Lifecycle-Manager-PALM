@@ -1,0 +1,10 @@
+.date-seal { display:flex; flex-direction:column; gap:4px; border:1px solid var(--accent); outline:1px solid var(--line); outline-offset:3px; padding:9px 12px; margin:4px; text-align:center; color:var(--accent); font-size:10px; font-variant-numeric:tabular-nums; background:var(--paper); }
+.seal-label { font-size:13px; font-weight:600; }
+.seal-row { display:flex; flex-wrap:wrap; gap:9px; margin:12px 0; }
+.journal-link { background:transparent; color:var(--accent); font-size:12px; min-height:44px; line-height:44px; padding:0 8px; margin:0; }
+.journal-link::after { border:0; }
+.journal-note { font-size:12px; color:var(--muted); line-height:1.7; margin-top:10px; overflow-wrap:anywhere; }
+.journal-rule { border-top:.5px solid var(--line); margin:14px 0; }
+.journal-entry { padding:12px 0; border-bottom:.5px solid var(--line); }
+.journal-entry-name { font-weight:600; font-size:14px; overflow-wrap:anywhere; }
+.journal-caption { color:var(--muted); font-size:11px; margin-top:4px; }

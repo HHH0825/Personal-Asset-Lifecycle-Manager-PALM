@@ -13,6 +13,7 @@ from .routes_items import bp as items_bp
 from .routes_events import bp as events_bp
 from .routes_insights import bp as insights_bp
 from .routes_trash import bp as trash_bp
+from .routes_reports import bp as reports_bp
 
 
 def create_app(test_config=None):
@@ -35,7 +36,7 @@ def create_app(test_config=None):
     app.register_error_handler(404, lambda _error: (jsonify(error="记录不存在"), 404))
     app.register_error_handler(410, lambda error: (jsonify(error=error.description), 410))
     app.register_error_handler(413, lambda _error: (jsonify(error="照片不能超过 5 MB"), 413))
-    for blueprint in (auth_bp, items_bp, events_bp, insights_bp, trash_bp):
+    for blueprint in (auth_bp, items_bp, events_bp, insights_bp, trash_bp, reports_bp):
         app.register_blueprint(blueprint)
     @app.get("/healthz")
     def healthz():

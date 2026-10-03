@@ -1,10 +1,10 @@
 const api = require('../../utils/api')
 const view = require('../../utils/view')
-const { AVATAR_KEYS, AVATAR_LABELS, avatarState, isCurrent } = require('../../utils/profile')
+const { AVATAR_KEYS, AVATAR_LABELS, avatarState, avatarError, isCurrent } = require('../../utils/profile')
 
 Page({
   data: { user: null, name: '', avatarSymbol: '芽', avatarLabels: AVATAR_LABELS,
-    avatarIndex: 0, loading: true, loaded: false, busy: false, focused: false, error: '' },
+    avatarIndex: 0, avatarPath: '', avatarFailed: false, loading: true, loaded: false, busy: false, focused: false, error: '' },
   onLoad() { this._sequence = 0 },
   onShow() {
     this._visible = true
@@ -13,7 +13,7 @@ Page({
   onHide() {
     this._visible = false
     this._sequence += 1
-    this.setData({ user: null, name: '', avatarSymbol: '芽', avatarIndex: 0, loading: true,
+    this.setData({ user: null, name: '', avatarSymbol: '芽', avatarIndex: 0, avatarPath: '', avatarFailed: false, loading: true,
       loaded: false, busy: false, focused: false, error: '' })
   },
   onUnload() { this._visible = false; this._sequence += 1 },
@@ -31,6 +31,7 @@ Page({
       if (isCurrent(this, sequence, token)) this.setData({ loading: false, error: view.errorMessage(error) })
     }
   },
+  avatarError,
   nameInput(event) { this.setData({ name: event.detail.value }) },
   focus() { this.setData({ focused: true }) },
   blur() { this.setData({ focused: false }) },

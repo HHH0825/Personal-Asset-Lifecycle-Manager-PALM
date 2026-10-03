@@ -1,0 +1,3 @@
+@import "../../styles/journal.wxss";
+.keepsake-entry { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.keepsake-name { flex:1; min-width:90px; overflow-wrap:anywhere; font-weight:600; }

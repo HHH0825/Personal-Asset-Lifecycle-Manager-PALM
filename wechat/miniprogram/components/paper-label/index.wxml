@@ -1,0 +1,4 @@
+<view class="paper-label label-{{art}} {{imageFailed ? 'paper-fallback' : ''}}">
+ <image wx:if="{{!imageFailed}}" class="label-art" src="/assets/paper/{{art}}.png" mode="aspectFit" binderror="imageError" aria-hidden="true"/>
+ <text wx:if="{{number}}" class="label-number">{{number}}</text><text class="label-text">{{text}}</text>
+</view>

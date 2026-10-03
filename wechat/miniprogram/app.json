@@ -1,23 +1,51 @@
 {
   "pages": [
-    "pages/items/index", "pages/insights/index", "pages/me/index",
-    "pages/login/index", "pages/item/index", "pages/editor/index",
-    "pages/record/index", "pages/trash/index", "pages/profile/index"
+    "pages/items/index",
+    "pages/insights/index",
+    "pages/me/index",
+    "pages/login/index",
+    "pages/item/index",
+    "pages/editor/index",
+    "pages/record/index",
+    "pages/trash/index",
+    "pages/profile/index",
+    "pages/keepsakes/index",
+    "pages/monthly/index"
   ],
   "window": {
     "navigationBarTitleText": "物物记",
-    "navigationBarBackgroundColor": "#FFF8EF",
+    "navigationBarBackgroundColor": "#F2EADF",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#FFF8EF"
+    "backgroundColor": "#F2EADF"
   },
   "tabBar": {
-    "color": "#806D63", "selectedColor": "#B64F3D",
-    "backgroundColor": "#FFFFFF", "borderStyle": "white",
+    "color": "#635147",
+    "selectedColor": "#845645",
+    "backgroundColor": "#FFFCF7",
+    "borderStyle": "white",
     "list": [
-      { "pagePath": "pages/items/index", "text": "物品" },
-      { "pagePath": "pages/insights/index", "text": "发现" },
-      { "pagePath": "pages/me/index", "text": "我的" }
+      {
+        "pagePath": "pages/items/index",
+        "text": "物品",
+        "iconPath": "assets/paper/nav-items.png",
+        "selectedIconPath": "assets/paper/nav-items-selected.png"
+      },
+      {
+        "pagePath": "pages/insights/index",
+        "text": "发现",
+        "iconPath": "assets/paper/nav-insights.png",
+        "selectedIconPath": "assets/paper/nav-insights-selected.png"
+      },
+      {
+        "pagePath": "pages/me/index",
+        "text": "我的",
+        "iconPath": "assets/paper/nav-me.png",
+        "selectedIconPath": "assets/paper/nav-me-selected.png"
+      }
     ]
+  },
+  "usingComponents": {
+    "paper-background": "/components/paper-background/index"
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

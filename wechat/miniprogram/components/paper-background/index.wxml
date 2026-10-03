@@ -1,0 +1,3 @@
+<view class="paper-background" aria-hidden="true">
+  <image class="paper-collage" src="/assets/paper/header-{{art}}.png" mode="widthFix" />
+</view>

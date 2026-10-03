@@ -1,12 +1,14 @@
 <view class="page me-page">
+  <paper-background theme="rose" />
   <view class="page-heading heading-layout"><view class="heading-copy"><view class="eyebrow">物物记 · 我的空间</view><view class="title">我的</view><view class="subtitle">把生活，慢慢收藏。</view></view><image class="heading-cat" src="/assets/stickers/wave.png" mode="aspectFit" aria-hidden="true"/></view>
   <button class="profile-hero" style="width:100%;" hover-class="profile-hover" bindtap="profile" aria-label="编辑个人资料">
-    <view class="profile-avatar" aria-hidden="true">{{avatarSymbol}}</view>
+    <view class="profile-avatar" aria-hidden="true"><image wx:if="{{avatarPath && !avatarFailed}}" class="avatar-art" src="{{avatarPath}}" data-src="{{avatarPath}}" mode="aspectFit" binderror="avatarError"/><text wx:else>{{avatarSymbol}}</text></view>
     <view class="profile-info"><view class="profile-name">{{user ? user.username : loading ? '正在读取资料…' : '个人资料'}}</view><view class="profile-caption">编辑个人资料</view></view>
     <text class="menu-arrow" aria-hidden="true">›</text>
   </button>
   <view wx:if="{{error}}" class="card error-panel" role="alert">{{error}}<button class="button light" hover-class="button-hover" bindtap="load">重新读取资料</button></view>
   <view class="section-head"><text class="section-title">我的收藏册</text></view>
   <button class="card menu" style="width:100%;" hover-class="profile-hover" bindtap="trash" aria-label="打开回收站"><view><view class="menu-title">回收站</view><view class="muted">删除后保留 30 天，期间可恢复</view></view><text class="menu-arrow" aria-hidden="true">›</text></button>
+  <button class="card menu" style="width:100%;" hover-class="profile-hover" bindtap="keepsakes"><view><view class="menu-title">陪伴纪念册</view><view class="muted">百日与周年，按日期收好</view></view><text class="menu-arrow">›</text></button>
   <view class="account-footer"><button class="button light block" hover-class="button-hover" bindtap="logout">退出当前账户</button><view class="account-note">小程序账户与原单机网页版独立</view></view>
 </view>

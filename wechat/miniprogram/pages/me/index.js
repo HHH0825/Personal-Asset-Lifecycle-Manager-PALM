@@ -1,18 +1,20 @@
 const api = require('../../utils/api')
 const view = require('../../utils/view')
-const { avatarState, isCurrent } = require('../../utils/profile')
+const { navigate, resetNavigation } = require('../../utils/navigation')
+const { avatarState, avatarError, isCurrent } = require('../../utils/profile')
 
 Page({
-  data: { user: null, avatarSymbol: '芽', loading: true, error: '' },
+  data: { user: null, avatarSymbol: '芽', avatarPath: '', avatarFailed: false, loading: true, error: '' },
   onLoad() { this._sequence = 0 },
   onShow() {
     this._visible = true
+    resetNavigation(this)
     if (getApp().requireSession()) this.load()
   },
   onHide() {
     this._visible = false
     this._sequence += 1
-    this.setData({ user: null, avatarSymbol: '芽', loading: true, error: '' })
+    this.setData({ user: null, avatarSymbol: '芽', avatarPath: '', avatarFailed: false, loading: true, error: '' })
   },
   onUnload() { this._visible = false; this._sequence += 1 },
   async load() {
@@ -27,8 +29,10 @@ Page({
       if (isCurrent(this, sequence, token)) this.setData({ loading: false, error: view.errorMessage(error) })
     }
   },
-  profile() { if (getApp().requireSession()) wx.navigateTo({ url: '/pages/profile/index' }) },
-  trash() { wx.navigateTo({ url: '/pages/trash/index' }) },
+  avatarError,
+  profile() { navigate(this, '/pages/profile/index') },
+  keepsakes() { navigate(this, '/pages/keepsakes/index') },
+  trash() { navigate(this, '/pages/trash/index') },
   async logout() {
     if (this._loggingOut) return
     this._loggingOut = true

@@ -1,0 +1,8 @@
+<view class="page"><paper-background theme="small"/>
+  <view class="eyebrow">物物记 · 日期存档</view><view class="title">陪伴纪念册</view><view class="subtitle">从购入那天算起，留下的日期。</view>
+  <view wx:if="{{loading}}" class="empty">正在整理纪念…</view>
+  <view wx:elif="{{error}}" class="card error-panel">{{error}}<button class="button light" bindtap="load">重新读取</button></view>
+  <view wx:elif="{{!entries.length}}" class="empty"><image class="empty-cat" src="/assets/stickers/journal.png" mode="aspectFit"/>还没有达成的纪念。物品满百日或周年时，会出现在这里。</view>
+  <view wx:for="{{entries}}" wx:key="key" class="card keepsake-entry" data-id="{{item.itemId}}" bindtap="open"><view class="date-seal"><text class="seal-label">{{item.label}}</text><text>{{item.date}}</text></view><view class="keepsake-name">{{item.name}}</view><text class="muted">查看档案 ›</text></view>
+  <view class="field-note">纪念按当前物品资料计算；已处置物品截至处置日，回收站物品不计入。</view>
+</view>

@@ -1,0 +1,12 @@
+@import "../../styles/journal.wxss";
+.month-select { min-height:48px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--accent); margin:16px 0; font-size:20px; }
+.month-select text { font-size:12px; color:var(--muted); }
+.report-paper { border-radius:3px; padding:18px; }
+.report-dateline { color:var(--muted); font-size:11px; letter-spacing:1px; padding-bottom:12px; border-bottom:1px solid var(--line); }
+.report-totals { margin:12px 0 22px; }
+.report-totals view { display:flex; justify-content:space-between; gap:14px; font-size:13px; padding:9px 0; }
+.report-totals text:first-child { flex:none; color:var(--muted); }
+.report-totals text:last-child { text-align:right; overflow-wrap:anywhere; min-width:0; }
+.export-actions { display:flex; gap:10px; margin-top:16px; }
+.export-actions .button { flex:1; }
+.report-canvas { position:fixed; left:-2000px; top:0; width:720px; height:1580px; pointer-events:none; }

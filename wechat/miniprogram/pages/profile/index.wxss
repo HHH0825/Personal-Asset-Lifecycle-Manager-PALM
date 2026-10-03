@@ -1,7 +1,8 @@
 .profile-form { position: relative; margin-top: 16px; padding: 18px 16px; }
-.profile-form::before { content: ''; position: absolute; width: 40px; height: 10px; background: var(--lavender); border-radius: 2px; top: -5px; right: 24px; transform: rotate(5deg); pointer-events: none; }
+.profile-form::before { content: ''; position: absolute; width: 40px; height: 10px; background: var(--tape); border-radius: 1px; top: -5px; right: 24px; transform: rotate(5deg); pointer-events: none; }
 .profile-preview { display: flex; align-items: center; gap: 12px; padding: 2px 0 5px; }
 .profile-preview > view:last-child { flex: 1; min-width: 0; }
 .avatar-preview { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; flex: none; border-radius: 15px; background: var(--bg); border: .5px solid var(--line); color: var(--lavender-ink); font-size: 24px; }
 .preview-title { font-size: 15px; font-weight: 600; margin-bottom: 3px; }
+.avatar-art { display: block; width: 44px; height: 44px; pointer-events: none; }
 .profile-note { text-align: center; color: var(--muted); font-size: 11.5px; margin-top: 12px; }

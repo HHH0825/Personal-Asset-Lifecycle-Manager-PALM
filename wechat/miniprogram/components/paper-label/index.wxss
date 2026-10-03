@@ -1,0 +1,16 @@
+/* Artwork is decorative: the containing native button owns the tap. */
+.paper-label { position: relative; width: 184px; height: 46px; color: #493B35; font-weight: 500; box-sizing: border-box; pointer-events: none; }
+.label-text, .label-number { pointer-events: none; }
+.label-art { position: absolute; width: 100%; height: 100%; left: 0; top: 0; pointer-events: none; }
+.label-number { position: absolute; left: 51px; top: 16px; font-size: 10px; line-height: 16px; color: #635147; }
+.label-text { position: absolute; left: 70px; top: 14px; font-size: 14px; line-height: 20px; white-space: nowrap; }
+.label-add { width: 104px; height: 46px; }
+.label-add .label-text { left: 51px; top: 13px; font-size: 14px; font-weight: 600; }
+.label-collection { width: 142px; height: 34px; }
+.label-collection .label-text { left: 39px; top: 7px; font-size: 11px; line-height: 20px; }
+.paper-fallback { background: #FFFCF7; border: 1px solid #AA9180; border-radius: 3px; }
+.paper-fallback .label-text { left: 15px; }
+.paper-fallback .label-number { left: 12px; }
+.paper-fallback .label-number + .label-text { left: 37px; }
+.label-login, .label-save { width: 100%; height: 56px; }
+.label-login .label-text, .label-save .label-text { left: 70px; right: 70px; top: 16px; line-height: 24px; text-align: center; font-size: 15px; font-weight: 600; }

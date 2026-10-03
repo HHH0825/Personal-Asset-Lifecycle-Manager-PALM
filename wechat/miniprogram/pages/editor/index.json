@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "编辑物品" }
+{ "navigationBarTitleText": "编辑物品", "usingComponents": { "paper-label": "/components/paper-label/index" } }

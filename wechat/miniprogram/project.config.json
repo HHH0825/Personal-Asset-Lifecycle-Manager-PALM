@@ -4,6 +4,7 @@
   "miniprogramRoot": "./",
   "compileType": "miniprogram",
   "setting": {
+    "compileHotReLoad": false,
     "es6": true,
     "postcss": true,
     "minified": true,
