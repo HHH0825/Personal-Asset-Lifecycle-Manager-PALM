@@ -2,7 +2,11 @@
 .detail-cover { position: relative; padding: 12px; background: var(--paper); border: .5px solid var(--line); border-radius: var(--radius); box-shadow: 3px 4px 0 rgba(73, 59, 53, .04); }
 .detail-cover::before { content: ''; position: absolute; pointer-events: none; top: -5px; right: 26px; width: 42px; height: 11px; background: var(--yellow); transform: rotate(5deg); border-radius: 2px; }
 .cover-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-bottom: 9px; }
-.detail-hero { border-radius: 11px; overflow: hidden; background: var(--ledger); }
+.detail-hero { position:relative; height:200px; border-radius: 11px; overflow: hidden; background: var(--ledger); }
+.photo-fallback-art { width:80px; height:80px; }
+.photo-loading { position:absolute; bottom:0; left:0; right:0; padding:8px; text-align:center; font-size:12px; color:var(--muted); background:var(--paper); pointer-events:none; }
+button.photo-retry { position:absolute; bottom:0; left:0; width:100%; max-width:none; margin:0; padding:0 8px; min-height:44px; line-height:44px; font-size:12px; color:var(--accent); background:var(--paper); border-radius:0; }
+.photo-retry::after { border:0; }
 .photo { display: block; width: 100%; height: 200px; }
 .detail-no-photo { height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; color: var(--muted); font-size: 11.5px; }
 .detail-symbol { font-size: 35px; color: var(--blue); line-height: 1.2; }

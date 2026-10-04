@@ -1,5 +1,5 @@
 from flask import Blueprint, current_app, g, jsonify, request, send_from_directory
-from .photo import save_photo, delete_photo
+from .photo import save_photo, delete_photo, ensure_thumbnail
 from .repository import (item_row, list_item_rows, create_item, update_item, delete_item,
                          set_item_target, set_item_pin)
 from .services import item_payload, ensure_purchase_date
@@ -69,10 +69,14 @@ def item_detail(item_id):
 def item_photo(item_id):
     row = item_row(item_id)
     if request.method == "GET":
+        size = request.args.get("size", "full")
+        if size not in ("thumb", "full"):
+            raise InputError("照片尺寸只能为 thumb 或 full")
         if not row["photo_key"]:
             from flask import abort
             abort(404)
-        return send_from_directory(current_app.config["PHOTO_DIR"], row["photo_key"], mimetype="image/jpeg")
+        key = ensure_thumbnail(row["photo_key"]) if size == "thumb" else row["photo_key"]
+        return send_from_directory(current_app.config["PHOTO_DIR"], key, mimetype="image/jpeg")
     if request.method == "DELETE":
         delete_photo(item_id)
         return "", 204

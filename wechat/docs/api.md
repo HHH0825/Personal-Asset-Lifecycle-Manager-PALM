@@ -8,7 +8,7 @@
 | 修改资料 | `PUT /profile` |
 | 物品列表／新增 | `GET /items`、`POST /items` |
 | 详情／编辑／移入回收站 | `GET/PUT/DELETE /items/<id>` |
-| 照片 | `GET/POST/DELETE /items/<id>/photo`，上传使用字段 `photo` |
+| 照片 | `GET/POST/DELETE /items/<id>/photo`，上传使用字段 `photo`；`GET ?size=thumb` 读取缩略图 |
 | 置顶／日均目标 | `PUT /items/<id>/pin`、`PUT /items/<id>/daily-target` |
 | 历史使用／维修 | `GET /items/<id>/usage`（历史只读）、`GET/POST /items/<id>/maintenance` |
 | 修改／删除维修记录 | `PUT/DELETE /maintenance/<id>` |
@@ -33,6 +33,12 @@
 示例记录：维修为 `{ "maintained_on": "2025-03-01", "cost": "100.00", "description": "清洁" }`；处置为 `{ "disposed_on": "2025-04-01", "method": "sold", "proceeds": "500.00", "notes": "" }`。
 
 使用写入已退役，返回 `{ "error": "使用记录已停用，历史记录仍可查看" }`。无凭证返回 401，无权访问、记录不存在或物品在回收站返回 404；这些校验先于停用提示。旧使用表和详情 `usage_records` 保留，列表与详情中的 `usage_count/used_today/last_recorded_use` 暂时兼容旧读取客户端。`GET /insights` 不再产生 `inactive/unknown_use` 分析卡片；`review_items` 只返回手动闲置，`unknown_usage_items` 固定为空。`review_threshold_days` 仅作旧客户端兼容，当前分析不使用该阈值。
+
+## 照片尺寸与版本
+
+列表、详情及照片上传后返回的物品包含 `photo_version`：有照片时为不透明版本字符串，无照片时为 `null`。替换照片后版本改变；客户端不得将它解释为文件路径。
+
+`GET /items/<id>/photo?size=thumb` 返回最长边不超过 480px 的 JPEG；省略 `size` 或传 `full` 返回现有清晰照片（最长边 1600px）。其他尺寸值返回 400。两种尺寸均先验证账号和物品权限，回收站或无权限返回 404，未登录返回 401。旧照片在首次请求缩略图时生成，不修改原照片；无需数据库迁移。照片响应继续禁止 HTTP 缓存，客户端仅在当前登录会话内管理临时文件。`v` 查询参数仅供客户端区分版本，不改变服务端权限检查。
 
 ## 纪念与目标
 

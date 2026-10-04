@@ -2,9 +2,9 @@ const api = require('../../utils/api')
 const view = require('../../utils/view')
 const { navigate, resetNavigation } = require('../../utils/navigation')
 Page({
-  data: { item: null, timeline: [], allTimeline: [], photoPath: '', loading: true, busy: false, error: '', stamps: [], allStamps: [], expanded: false,
+  data: { item: null, timeline: [], allTimeline: [], photoPath: '', photoLoading: false, photoError: false, loading: true, busy: false, error: '', stamps: [], allStamps: [], expanded: false,
     factsExpanded: false, timelineExpanded: false, historyExpanded: false, historyUsage: [], targetEditing: false, targetInput: '', targetBusy: false, targetError: '' },
-  onLoad(options) { this.itemId = Number(options.id); this._sequence = 0; this._token = getApp().globalData.token; this._scrollTop = 0 },
+  onLoad(options) { this.itemId = Number(options.id); this._sequence = 0; this._token = getApp().globalData.token; this._scrollTop = 0; this._photoOwner = {}; this._photos = api.photoCache(); this._photoRead = 0 },
   onShow() {
     this._visible = true; resetNavigation(this)
     if (this._token !== getApp().globalData.token) {
@@ -15,16 +15,19 @@ Page({
     if (getApp().requireSession() && this.itemId) this.load()
   },
   onPageScroll(event) { this._scrollTop = event.scrollTop },
-  onHide() { this._returnScroll = this._scrollTop; this._visible = false; this._sequence += 1; this._mutation = null; this.setData({ photoPath: '', targetEditing: false, targetInput: '', targetError: '', targetBusy: false, busy: false }) },
-  onUnload() { this._visible = false; this._sequence += 1 },
+  onHide() { this._returnScroll = this._scrollTop; this._visible = false; this._sequence += 1; this._photos.release(this._photoOwner); this._mutation = null; this.setData({ photoPath: '', photoLoading: false, photoError: false, targetEditing: false, targetInput: '', targetError: '', targetBusy: false, busy: false }) },
+  onUnload() { this._visible = false; this._sequence += 1; this._photos.release(this._photoOwner) },
   async load() {
     const id = this.itemId
     const sequence = ++this._sequence, token = getApp().globalData.token
-    this.setData({ loading: true, error: '', photoPath: '', artFailed: false })
+    this._photos.release(this._photoOwner)
+    this.setData({ loading: !this.data.item, error: '', photoLoading: false, photoError: false, artFailed: false })
     try {
       const raw = await api.request(`/items/${id}`)
       if (sequence !== this._sequence || !this._visible || token !== getApp().globalData.token) return
       const item = view.decorate(raw)
+      this._photos.sync([item])
+      if (!this.data.item || this.data.item.photo_version !== item.photo_version || !item.photo_url) this.setData({ photoPath: '' })
       const timeline = [
         ...item.maintenance_records.map(r => ({ ...r, kind: 'maintenance', kindText: '维修', day: r.maintained_on, text: `${r.description} · ¥${r.cost}` })),
         ...(item.disposal ? [{ ...item.disposal, kind: 'disposal', kindText: '处置', day: item.disposal.disposed_on,
@@ -34,10 +37,12 @@ Page({
       const historyUsage = (item.usage_records || []).slice().sort((a, b) => b.used_on.localeCompare(a.used_on) || b.id - a.id)
       this.setData({ item, historyUsage, allTimeline: timeline, timeline: this.data.timelineExpanded ? timeline : timeline.slice(0, 3), loading: false,
         allStamps, stamps: this.data.expanded ? allStamps : allStamps.slice(0, 1) }, () => this.restoreScroll(sequence, token))
-      if (item.photo_url) api.downloadPhoto(id).then(photoPath => {
-        if (sequence === this._sequence && this._visible && token === getApp().globalData.token) this.setData({ photoPath })
-      }).catch(() => {})
-    } catch (error) { if (sequence === this._sequence && this._visible && token === getApp().globalData.token) this.setData({ loading: false, error: view.errorMessage(error), item: null }) }
+      if (item.photo_url) this.readPhoto()
+    } catch (error) {
+      if (sequence === this._sequence && this._visible && token === getApp().globalData.token) {
+        this.setData({ loading: false, error: view.errorMessage(error), ...(error.status ? { item: null, photoPath: '' } : {}) })
+      }
+    }
   },
   restoreScroll(sequence, token) {
     if (this._returnScroll == null || !wx.pageScrollTo) return
@@ -56,7 +61,25 @@ Page({
     } catch (_) { restore(null) }
   },
   edit() { navigate(this, `/pages/editor/index?id=${this.itemId}`) },
-  photoFailed() { this.setData({ photoPath: '' }) },
+  async readPhoto() {
+    if (!this._visible || !this.data.item || !this.data.item.photo_url || this.data.photoLoading) return
+    const item = this.data.item, sequence = this._sequence, token = getApp().globalData.token, read = ++this._photoRead
+    const current = () => this._visible && sequence === this._sequence && read === this._photoRead && token === getApp().globalData.token
+    this.setData({ photoLoading: true, photoError: false })
+    let fullReady = false
+    this._photos.peek(item).then(path => { if (path && !fullReady && current()) this.setData({ photoPath: path }) }).catch(() => {})
+    try {
+      const path = await this._photos.load(item, this._photoOwner, 'full')
+      fullReady = true
+      if (current()) this.setData({ photoPath: path })
+    } catch (error) { if (!error.cancelled && current()) this.setData({ photoError: true }) }
+    finally { if (current()) this.setData({ photoLoading: false }) }
+  },
+  retryPhoto() { return this.readPhoto() },
+  photoFailed() {
+    this._photoRead++; this._photos.release(this._photoOwner); this._photos.invalidate(this.itemId)
+    this.setData({ photoPath: '', photoLoading: false, photoError: true })
+  },
   artFailed() { this.setData({ artFailed: true }) },
   toggleStamps() { const expanded = !this.data.expanded; this.setData({ expanded, stamps: expanded ? this.data.allStamps : this.data.allStamps.slice(0, 1) }) },
   toggleFacts() { this.setData({ factsExpanded: !this.data.factsExpanded }) },

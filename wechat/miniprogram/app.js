@@ -16,6 +16,7 @@ App({
   },
   requireSession() {
     if (this.hasSession()) return true
+    this.clearSession()
     wx.reLaunch({ url: '/pages/login/index' })
     return false
   },
@@ -27,12 +28,14 @@ App({
     }
     const api = require('./utils/api')
     const session = await api.request('/auth/login', { method: 'POST', data: { code }, anonymous: true })
+    api.clearPhotos()
     this.globalData = { token: session.token, expiresAt: session.expires_at, user: session.user }
     wx.setStorageSync('palmSession', this.globalData)
     return session.user
   },
   clearSession() {
     this.globalData = { token: '', expiresAt: 0, user: null }
+    require('./utils/api').clearPhotos()
     wx.removeStorageSync('palmSession')
   },
   updateUser(user, token) {

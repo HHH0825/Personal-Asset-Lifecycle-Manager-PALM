@@ -1,9 +1,9 @@
 <view class="page detail-page">
   <paper-background theme="small" />
   <view wx:if="{{loading}}" class="empty"><text class="empty-mark">· · ·</text>正在翻开这一页…</view>
-  <view wx:elif="{{error}}" class="card error-panel">{{error}}<button class="button light" hover-class="button-hover" bindtap="load">重新读取</button></view>
-  <block wx:elif="{{item}}">
-    <view wx:if="{{item.photo_url}}" class="detail-cover"><view class="cover-label">物品档案 · {{item.id}}</view><view class="detail-hero"><image wx:if="{{photoPath}}" class="photo" src="{{photoPath}}" mode="aspectFill" binderror="photoFailed"/><view wx:else class="detail-no-photo">照片暂未显示</view></view></view>
+  <view wx:if="{{error}}" class="card error-panel">{{error}}<button class="button light" hover-class="button-hover" bindtap="load">重新读取</button></view>
+  <block wx:if="{{item}}">
+    <view wx:if="{{item.photo_url}}" class="detail-cover"><view class="cover-label">物品档案 · {{item.id}}</view><view class="detail-hero"><image wx:if="{{photoPath}}" class="photo" src="{{photoPath}}" mode="aspectFill" binderror="photoFailed"/><view wx:else class="detail-no-photo"><image wx:if="{{!artFailed}}" class="photo-fallback-art" src="{{item.art}}" mode="aspectFit" binderror="artFailed"/><text wx:else>{{item.icon}}</text></view><text wx:if="{{photoLoading}}" class="photo-loading">正在读取清晰照片…</text><button wx:if="{{photoError}}" class="photo-retry" bindtap="retryPhoto">照片读取失败 · 重试</button></view></view>
     <view class="detail-heading {{!item.photo_url ? 'compact-heading' : ''}}">
       <view wx:if="{{!item.photo_url}}" class="compact-art"><image wx:if="{{!artFailed}}" class="detail-type-art" src="{{item.art}}" mode="aspectFit" binderror="artFailed"/><view wx:else class="detail-symbol">{{item.icon}}</view></view>
       <view class="heading-text"><view class="row"><text class="pill status-{{item.status}}">{{item.statusText}}</text><text class="muted small">{{item.category}}</text></view><view class="title">{{item.name}}</view><view class="subtitle">{{item.purchase_date}} 购入 · ¥{{item.purchase_price}}</view></view>

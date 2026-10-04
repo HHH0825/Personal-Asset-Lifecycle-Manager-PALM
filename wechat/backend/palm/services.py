@@ -3,6 +3,7 @@ from flask import g
 from .repository import item_summary, usage_rows, maintenance_rows, event_boundary, disposal_by_item
 from .validation import InputError, date_value, value, cents_value, money, daily_cost
 from .journey import item_journey
+from .photo import photo_version
 
 def item_costs(purchase_cents, maintenance_cents, proceeds_cents, purchased, end):
     """Calculate a snapshot from plain values so the rules can be tested without a DB."""
@@ -40,6 +41,7 @@ def item_payload(row, details=False, today=None):
         "purchase_date": row["purchase_date"], "purchase_price": money(row["purchase_cents"]),
         "warranty_expires_on": row["warranty_expires_on"],
         "photo_url": f"/api/mp/items/{item_id}/photo" if row["photo_key"] else None,
+        "photo_version": photo_version(row["photo_key"]),
         "is_pinned": bool(row["is_pinned"]), "used_today": bool(row["used_today"]),
         "notes": row["notes"], "status": row["status"],
         "maintenance_total": money(maintenance_cents), "usage_count": row["usage_count"],

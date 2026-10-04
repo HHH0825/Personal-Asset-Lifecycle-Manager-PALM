@@ -1,7 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const view = require('../miniprogram/utils/view')
-const { createThumbnailLoader } = require('../miniprogram/utils/thumbnails')
 const { welcomeLayout, readWindowInfo } = require('../miniprogram/utils/layout')
 const tick = () => new Promise(resolve => setImmediate(resolve))
 
@@ -99,8 +98,10 @@ function profileHarness() {
     navigateBack(options = {}) { navigation.push(['navigateBack', options.delta]) },
     switchTab(options) { navigation.push(['switchTab', options.url]) },
     reLaunch(options) { navigation.push(['reLaunch', options.url]) },
-    showToast() {}
+    showToast() {},
+    getFileSystemManager() { return { stat(o) { o.success({ stats: { size: 1024 } }) }, unlink(o) { o.complete() } } }
   }
+  require('../miniprogram/utils/api').clearPhotos()
   delete require.cache[require.resolve('../miniprogram/app')]
   require('../miniprogram/app')
   const app = { ...appDefinition, globalData: { token: 'alice-session',
@@ -456,88 +457,54 @@ test('in-flight response cannot return old-account data after switching', async 
   await assert.rejects(pending, /账户已切换/)
 })
 
-test('thumbnail reads deduplicate, respect concurrency and fall back on failure', async () => {
-  const calls = []
-  const gates = new Map()
-  const loader = createThumbnailLoader({ getSession: () => 'owner', maxConcurrent: 2,
-    download(id) { calls.push(id); return new Promise((resolve, reject) => gates.set(id, { resolve, reject })) } })
-  const first = loader.load(1)
-  assert.equal(loader.load(1), first)
-  const second = loader.load(2)
-  const third = loader.load(3)
-  await tick()
-  assert.deepEqual(calls, [1, 2])
-  gates.get(1).resolve('tmp/one.jpg')
-  assert.equal(await first, 'tmp/one.jpg')
-  await tick()
-  assert.deepEqual(calls, [1, 2, 3])
-  gates.get(2).reject(new Error('offline'))
-  gates.get(3).resolve('tmp/three.jpg')
-  assert.equal(await second, '')
-  assert.equal(await third, 'tmp/three.jpg')
-  assert.equal(await loader.load(1), 'tmp/one.jpg')
-  loader.dispose()
-})
-
-test('reset and account switching discard old temporary photo paths', async () => {
-  let session = 'alice'
-  const gates = []
-  const loader = createThumbnailLoader({ getSession: () => session, maxConcurrent: 1,
-    download() { return new Promise(resolve => gates.push(resolve)) } })
-  const old = loader.load(1)
-  const queued = loader.load(2)
-  await tick()
-  session = 'bob'
-  loader.reset()
-  assert.equal(await queued, '')
-  const fresh = loader.load(1)
-  gates[0]('alice-photo')
-  assert.equal(await old, '')
-  await tick()
-  gates[1]('bob-photo')
-  assert.equal(await fresh, 'bob-photo')
-  loader.reset()
-  const afterReplacement = loader.load(1)
-  await tick()
-  gates[2]('replacement-photo')
-  assert.equal(await afterReplacement, 'replacement-photo')
-  loader.dispose()
-})
-
-test('item page loads photos only when visible and clears them when leaving', async () => {
-  const api = require('../miniprogram/utils/api')
+test('item page reuses thumbnails on return, preserves offline content and clears switched-account data', async () => {
+  const api = require('../miniprogram/utils/api'), downloads = [], observers = []
   const originalRequest = api.request
-  const originalDownload = api.downloadPhoto
-  let observerCallback
-  let downloads = 0
   let definition
-  global.getApp = () => ({ globalData: { token: 'owner' } })
+  global.getApp = () => ({ globalData: { token: 'photo-owner' } })
   global.Page = page => { definition = page }
-  global.wx = { createIntersectionObserver() {
-    return { relativeToViewport() { return this }, observe(selector, callback) { observerCallback = callback }, disconnect() {} }
-  } }
-  api.request = async () => [{ id: 1, name: '相机', category: '数码', status: 'active', icon_type: 'digital', photo_url: '/photo' }]
-  api.downloadPhoto = async () => { downloads += 1; return 'temporary-photo' }
+  global.wx = {
+    downloadFile(options) { downloads.push(options); return { abort() { options.fail() } } },
+    getFileSystemManager() { return { stat(o) { o.success({ stats: { size: 1234 } }) }, unlink(o) { o.complete() } } },
+    createIntersectionObserver() { return { relativeToViewport() { return this }, observe(selector, callback) { observers.push(callback) }, disconnect() {} } }
+  }
+  api.clearPhotos()
+  api.request = async () => [{ id: 1, name: '相机', category: '数码', status: 'active', icon_type: 'digital', photo_url: '/photo', photo_version: 'v1' }]
   try {
     delete require.cache[require.resolve('../miniprogram/pages/items/index')]
     require('../miniprogram/pages/items/index')
-    const page = { ...definition, data: { ...definition.data }, setData(patch, callback) { Object.assign(this.data, patch); if (callback) callback() } }
-    page.onLoad()
-    page._visible = true
-    await page.load()
-    assert.equal(downloads, 0)
-    observerCallback({ intersectionRatio: 0, dataset: { id: 1 } })
-    await tick()
-    assert.equal(downloads, 0)
-    observerCallback({ intersectionRatio: 1, dataset: { id: 1 } })
-    await tick()
-    assert.equal(downloads, 1)
+    const page = { ...definition, data: structuredClone(definition.data), setData(patch, callback) {
+      for (const [key, value] of Object.entries(patch)) {
+        const parts = key.split('.'); let target = this.data
+        while (parts.length > 1) { const part = parts.shift(); target = target[part] || (target[part] = {}) }
+        target[parts[0]] = value
+      }
+      if (callback) callback()
+    } }
+    page.onLoad(); page._visible = true; await page.load()
+    page._token = 'photo-owner'
+    assert.equal(downloads.length, 0)
+    observers[0]({ intersectionRatio: 1, dataset: { id: 1 } }); await tick()
+    assert.equal(downloads.length, 1)
+    assert.match(downloads[0].url, /size=thumb/)
+    downloads[0].success({ statusCode: 200, tempFilePath: 'temporary-photo' }); await tick()
     assert.equal(page.data.photoPaths[1], 'temporary-photo')
-    page.onHide()
-    assert.deepEqual(page.data.photoPaths, {})
-    assert.deepEqual(page.data.items, [])
-    page.onUnload()
-  } finally { api.request = originalRequest; api.downloadPhoto = originalDownload }
+    page.onHide(); assert.equal(page.data.photoPaths[1], 'temporary-photo')
+    page._visible = true; await page.load()
+    observers[2]({ intersectionRatio: 1, dataset: { id: 1 } }); await tick()
+    assert.equal(downloads.length, 1)
+    assert.equal(page.data.photoPaths[1], 'temporary-photo')
+    api.request = async () => { throw new Error('offline') }
+    await page.load(); assert.equal(page.data.photoPaths[1], 'temporary-photo'); assert.match(page.data.error, /offline/)
+    page.photoFailed({ currentTarget: { dataset: { id: 1 } } })
+    observers[2]({ intersectionRatio: 1, dataset: { id: 1 } }); await tick()
+    assert.equal(downloads.length, 1, 'failed images do not loop automatically')
+    page.retryPhoto({ currentTarget: { dataset: { id: 1 } } }); await tick()
+    assert.equal(downloads.length, 2)
+    global.getApp = () => ({ globalData: { token: 'another-account' } })
+    page.onHide(); page.onUnload()
+    assert.deepEqual(page.data.items, []); assert.deepEqual(page.data.photoPaths, {})
+  } finally { api.request = originalRequest; api.clearPhotos() }
 })
 
 test('login selects the correct credential and preserves session on failure', async () => {
@@ -712,10 +679,10 @@ test('existing photo reads are preview-only, failures can retry and save does no
   h.respond(0, { id: 31, name: '旧照片', category: '收藏', icon_type: 'other', purchase_date: '2026-01-01',
     purchase_price: '20.00', notes: '', status: 'active', photo_url: '/photo' })
   await loaded
-  downloads[0].fail(); await tick()
+  await tick(); downloads[0].fail(); await tick()
   assert.match(page.data.photoError, /不会删除原照片/)
   const retry = page.loadPhoto()
-  downloads[1].success({ statusCode: 200, tempFilePath: 'existing.jpg' })
+  await tick(); downloads[1].success({ statusCode: 200, tempFilePath: 'existing.jpg' })
   await retry
   assert.equal(page.data.previewPath, 'existing.jpg')
   assert.equal(page.data.photoPath, '')
@@ -731,7 +698,7 @@ test('existing photo reads are preview-only, failures can retry and save does no
   const choose = editor.choosePhoto()
   reordered.sheets[0].success({ tapIndex: 0 }); await tick()
   reordered.selections[0].success({ tempFiles: [{ tempFilePath: 'new.jpg' }] }); await choose
-  pending[0].success({ statusCode: 200, tempFilePath: 'old.jpg' }); await read
+  await tick(); pending[0].success({ statusCode: 200, tempFilePath: 'old.jpg' }); await read
   assert.equal(editor.data.previewPath, 'new.jpg')
 })
 

@@ -201,6 +201,8 @@ $env:PALM_WECHAT_DEV_LOGIN = '1'
 
 ## 测试
 
+照片加载采用 480px 缩略图与当前会话共用缓存，详情和编辑读取清晰照片。返回清单复用有效文件，失败时可单张重试；缓存最多 60 张或 20 MB，退出和账号切换时清理。旧照片首次读取时生成缩略图，无须数据库迁移；升级后请重启后端并完整编译。详见 [照片说明](docs/photos.md) 与 [Android／iPhone 验收清单](docs/device-check.md)。正常本地配置仍为 5001，真机需要独立 HTTPS 测试配置。
+
 在 `wechat/` 目录、安装 Python 依赖后：
 
 ```powershell
@@ -210,6 +212,8 @@ node --test tests\navigation-discovery.test.cjs
 node --test tests\collection.test.cjs
 node --test tests\draft-detail.test.cjs
 node --test tests\monthly-report.test.cjs
+node --test tests\photo-cache.test.cjs
+node tools/photo-benchmark.cjs .venv/Scripts/python.exe
 ```
 
 `draft-detail.test.cjs` 验证草稿账号隔离、500ms 保存、离开补存、持久照片与文件替换、恢复和丢弃、存储失败、创建后的照片部分成功，以及详情折叠、滚动恢复、旧回调保护和清单跳转降级。
@@ -221,3 +225,11 @@ node --test tests\monthly-report.test.cjs
 `navigation-discovery.test.cjs` 针对入口跳转、重复点击与失败重试，以及发现页部分失败、响应结构校验、乱序请求和账号切换保护；可单独运行进行本轮定向检查。
 
 后端测试只使用临时数据库和照片目录，还会将后端复制到独立临时目录验证脱离上级项目运行。登录测试直接覆盖本地认证分支，检查调试开关、非本机拒绝、重启复用账号与缺少正式凭证的错误。前端测试覆盖筛选、金额展示、旧账号响应丢弃、缩略图并发限制、失败回退、按可见区域读取和页面离开后的清理，以及短屏/宽屏布局、窗口尺寸读取失败时的默认布局、窗口变化时的适配、主题文字对比度、SVG/PNG 素材引用与三倍导出尺寸、Logo 图片失败回退、纸签图片失败的文字回退、登录和物品保存的重复点击拦截与错误后重试、照片上传失败的部分成功提示、登录凭证模式和登录失败后的会话保留，以及资料保存去重、读取失败重试、未保存返回、会话持久化、账号切换及页面离开后的旧响应保护。新增照片测试覆盖明确相册／相机来源、取消、权限拒绝、编辑失败、裁剪兼容提示、旋转尺寸与 EXIF 朝向、仅上传最终图片、原照片预览不重复上传，以及离开页面或切换账号后的旧回调丢弃。接口字段见 [接口说明](docs/api.md)。
+
+### 照片加载检查
+
+清单使用轻量缩略图，进入详情读取清晰照片；会话内返回清单复用已有文件。以下为独立测试项目的照片墙，测试图片使用本地插画：
+
+![照片墙与固定照片区域](docs/images/photos-wall.png)
+
+[多尺寸检查与测试对比](docs/visual-check.md#2026-10-04照片缩略图与当前会话缓存)。Android／iPhone 的真实照片和权限操作仍按真机清单验收。

@@ -24,7 +24,7 @@ python3 -m venv .venv
 
 在 `miniprogram/project.config.json` 填入自己的 AppID，在 `miniprogram/config.js` 将 `API_BASE` 改为 HTTPS 域名并设 `DEV_LOGIN: false`。真实登录调用 `wx.login`，小程序只传临时 code；服务器凭 AppID 和 AppSecret 调微信接口。用微信开发者工具上传代码，在小程序管理后台设置体验成员并发布体验版。
 
-分别用 Android 和 iPhone 测试登录、相机/相册选图、照片读取、使用与维修记录、处置、回收站及退出登录。测试两个微信账号相互看不到数据。若上传照片失败，检查 Nginx 的请求体大小是否超过 6 MB；模板设为 6 MB。
+分别用 Android 和 iPhone 测试登录、相机/相册选图、照片读取、维修记录、处置、回收站及退出登录。测试两个微信账号相互看不到数据。若上传照片失败，检查 Nginx 的请求体大小是否超过 6 MB；模板设为 6 MB。独立测试配置与逐项记录表见 [真机验收](device-check.md)。
 
 ## 4. 维护
 

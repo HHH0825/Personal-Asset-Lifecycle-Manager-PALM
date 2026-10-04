@@ -13,6 +13,7 @@ Page({
   onLoad(options) {
     this._alive = true; this._visible = true; this._sequence = 0; this._photoSequence = 0
     this._token = getApp().globalData.token
+    this._photoOwner = {}; this._photos = api.photoCache()
     this.itemId = Number(options.id || 0); this.setData({ itemId: this.itemId })
     if (getApp().requireSession()) {
       if (this.itemId) this.load()
@@ -22,6 +23,7 @@ Page({
   onShow() {
     this._visible = true
     if (getApp().globalData.token !== this._token) {
+      this._photos.release(this._photoOwner)
       clearTimeout(this._draftTimer)
       this._sequence += 1; this._photoSequence += 1
       this.setData({ form: defaults(), photoPath: '', previewPath: '', hasPhoto: false, photoBusy: false,
@@ -36,11 +38,12 @@ Page({
     // current() also checks the page stack before accepting their callbacks.
     const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
     if (pages[pages.length - 1] !== this) {
+      this._photos.release(this._photoOwner)
       this._sequence += 1; this._photoSequence += 1
       this.setData({ photoBusy: false, photoLoading: false })
     }
   },
-  onUnload() { this.flushDraft(); this._alive = false; this._sequence += 1; this._photoSequence += 1 },
+  onUnload() { this.flushDraft(); this._alive = false; this._sequence += 1; this._photoSequence += 1; this._photos.release(this._photoOwner) },
   initDraft() {
     this._draft = drafts.createStore(drafts.scope(config.API_BASE, getApp().globalData.user))
     this._draftDirty = false; this._draftRevision = 0
@@ -132,6 +135,7 @@ Page({
     try {
       const item = await api.request(`/items/${this.itemId}`)
       if (!this.current(token) || sequence !== this._sequence) return
+      this._photoItem = item; this._photos.sync([item])
       const typeIndex = Math.max(0, view.TYPE_OPTIONS.findIndex(row => row[0] === item.icon_type))
       this.setData({ form: { name: item.name, category: item.category, icon_type: item.icon_type,
         purchase_date: item.purchase_date, purchase_price: item.purchase_price,
@@ -153,7 +157,7 @@ Page({
     const sequence = ++this._photoSequence, token = this._token
     this.setData({ photoLoading: true, photoError: '' })
     try {
-      const path = await api.downloadPhoto(this.itemId)
+      const path = await api.downloadPhoto(this.itemId, { owner: this._photoOwner, version: this._photoItem && this._photoItem.photo_version })
       if (this.current(token) && sequence === this._photoSequence) this.setData({ previewPath: path })
     } catch (_) {
       if (this.current(token) && sequence === this._photoSequence) this.setData({ photoError: '原照片读取失败，可重试或重新选择；保存其他信息不会删除原照片。' })
@@ -162,6 +166,7 @@ Page({
     }
   },
   previewFailed() {
+    if (!this.data.photoPath) this._photos.invalidate(this.itemId)
     this.setData({ previewPath: '', photoError: this.data.photoPath ? '照片预览失败，请重新选择照片。'
       : '原照片读取失败，可重试或重新选择；保存其他信息不会删除原照片。' })
   },
