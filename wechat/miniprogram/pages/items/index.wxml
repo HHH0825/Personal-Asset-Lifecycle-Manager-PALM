@@ -15,7 +15,6 @@
       <view wx:if="{{layout === 'list'}}" class="item-metrics"><view class="metric"><text class="metric-label">{{item.status === 'disposed' ? '曾持有' : '已持有'}}</text><view class="metric-value">{{item.holding_days}}<text class="metric-unit">天</text></view></view><view class="metric"><text class="metric-label">购买价 / 天</text><text class="metric-value">{{item.dailyPurchase}}</text></view><view class="metric"><text class="metric-label">净成本 / 天</text><text class="metric-value">{{item.dailyNet}}</text></view></view>
       <view wx:else class="wall-metrics"><text>{{item.status === 'disposed' ? '曾持有' : '陪伴'}} {{item.holding_days}} 天</text><text>净成本 / 天 {{item.dailyNet}}</text></view>
       <view class="item-footer"><text wx:if="{{layout === 'list'}}">累计净成本 ¥{{item.net_cost}}</text><text class="date-stamp">{{item.purchase_date}} 购入</text></view>
-      <button wx:if="{{item.status !== 'disposed'}}" class="quick-use" data-id="{{item.id}}" catchtap="quickUse" loading="{{pending[item.id]}}" disabled="{{pending[item.id] || item.used_today}}">{{item.used_today ? '✓ 今天已记录' : '＋ 今天用过'}}</button>
     </view>
   </view>
 </view>

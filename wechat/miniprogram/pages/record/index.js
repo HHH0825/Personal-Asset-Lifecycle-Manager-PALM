@@ -1,7 +1,7 @@
 const api = require('../../utils/api')
 const view = require('../../utils/view')
 Page({
-  data: { kind: 'usage', recordId: 0, today: view.today(), form: { used_on: view.today(), maintained_on: view.today(),
+  data: { kind: 'maintenance', retired: false, recordId: 0, today: view.today(), form: { maintained_on: view.today(),
     disposed_on: view.today(), cost: '', description: '', proceeds: '', method: 'sold', notes: '' },
     methods: ['出售', '赠送', '丢弃', '其他'], methodIndex: 0, busy: false, loading: false, loadFailed: false, focusField: '', error: '' },
   onLoad(options) {
@@ -9,11 +9,17 @@ Page({
     this.itemId = Number(options.itemId)
     this.recordId = Number(options.id || 0)
     this.kind = options.kind
-    if (!['usage', 'maintenance', 'disposal'].includes(this.kind) || !this.itemId) { wx.navigateBack(); return }
+    if (this.kind === 'usage') {
+      this.setData({ retired: true })
+      wx.showModal({ title: '使用记录已停用', content: '历史内容可在物品详情底部查看，不再新增或修改使用记录。', showCancel: false, success: () => this.back() })
+      return
+    }
+    if (!['maintenance', 'disposal'].includes(this.kind) || !this.itemId) { this.back(); return }
     this.setData({ kind: this.kind, recordId: this.recordId })
     if (this.recordId) this.load()
   },
   async load() {
+    if (this.data.retired) return
     this.setData({ loading: true, loadFailed: false, error: '' })
     try {
       const item = await api.request(`/items/${this.itemId}`)
@@ -27,24 +33,25 @@ Page({
   input(event) { this.setData({ [`form.${event.currentTarget.dataset.key}`]: event.detail.value }) },
   focus(event) { this.setData({ focusField: event.currentTarget.dataset.key }) },
   blur() { this.setData({ focusField: '' }) },
+  back() { wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/items/index' }) }) },
   methodChange(event) {
     const index = Number(event.detail.value)
     this.setData({ methodIndex: index, 'form.method': ['sold', 'gifted', 'discarded', 'other'][index] })
   },
   async save() {
-    if (this.data.busy || this.data.loading || this.data.loadFailed) return
+    if (this.data.busy || this.data.loading || this.data.loadFailed || !['maintenance', 'disposal'].includes(this.kind)) return
     this.setData({ busy: true, error: '' })
     const base = `/items/${this.itemId}/${this.kind}`
     const path = this.recordId ? `/${this.kind}/${this.recordId}` : base
     const form = this.data.form
-    const payload = this.kind === 'usage' ? { used_on: form.used_on, notes: form.notes }
-      : this.kind === 'maintenance' ? { maintained_on: form.maintained_on, cost: form.cost, description: form.description }
+    const payload = this.kind === 'maintenance' ? { maintained_on: form.maintained_on, cost: form.cost, description: form.description }
         : { disposed_on: form.disposed_on, method: form.method, proceeds: form.proceeds, notes: form.notes }
     try { await api.request(path, { method: this.recordId ? 'PUT' : 'POST', data: payload }); wx.navigateBack() }
     catch (error) { this.setData({ error: view.errorMessage(error) }) }
     finally { this.setData({ busy: false }) }
   },
   async remove() {
+    if (!['maintenance', 'disposal'].includes(this.kind) || !this.recordId) return
     const confirm = await new Promise(resolve => wx.showModal({ title: '删除这条记录？', content: '删除后统计会重新计算。', success: result => resolve(result.confirm) }))
     if (!confirm) return
     try { await api.request(`/${this.kind}/${this.recordId}`, { method: 'DELETE' }); wx.navigateBack() }

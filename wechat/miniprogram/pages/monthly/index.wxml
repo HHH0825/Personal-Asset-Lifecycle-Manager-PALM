@@ -1,15 +1,28 @@
 <view class="page monthly-page"><paper-background theme="small"/>
-  <view class="eyebrow">物物记 · 每月一页</view><view class="title">收藏小报</view>
-  <picker mode="date" fields="month" value="{{month}}" end="{{maxMonth}}" bindchange="changeMonth"><view class="month-select">{{month || '当前月份'}}<text>选择月份 ⌄</text></view></picker>
+  <view class="report-navigation"><text class="eyebrow">收藏小报</text><picker mode="date" fields="month" value="{{month}}" end="{{maxMonth}}" bindchange="changeMonth"><view class="month-select">{{month || '当前月份'}}<text>换一页 ⌄</text></view></picker></view>
   <view wx:if="{{loading}}" class="empty">正在整理当月记录…</view>
   <view wx:elif="{{error}}" class="card error-panel">{{error}}<button class="button light" bindtap="load">重新读取</button></view>
-  <block wx:elif="{{report}}"><view class="card report-paper"><view class="report-dateline">{{report.is_current ? '截至今天 · ' : '记录截止 · '}}{{report.cutoff_date}}</view>
-    <view class="report-totals"><view><text>购入物品</text><text>{{report.totals.purchase_count}} 件</text></view><view><text>购置支出</text><text>¥{{report.totals.purchase_total}}</text></view><view><text>维修支出</text><text>¥{{report.totals.maintenance_total}}</text></view><view><text>处置回收</text><text>¥{{report.totals.disposal_total}}</text></view><view><text>记录的使用</text><text>{{report.totals.usage_count}} 次</text></view></view>
-    <view wx:if="{{!report.has_activity}}" class="empty">这个月还没有记录。<button class="button light" bindtap="add">添加物品</button></view>
-    <view class="section-head"><text class="section-title">本月购入</text><text class="section-note">{{report.purchases.length}} 件</text></view><view wx:if="{{!report.purchases.length}}" class="journal-note">没有购入记录。</view>
-    <view wx:for="{{report.purchases}}" wx:key="id" class="journal-entry" data-id="{{item.id}}" bindtap="open"><view class="journal-entry-name">{{item.name}} ›</view><view class="journal-caption">{{item.purchase_date}} · ¥{{item.purchase_price}}</view></view>
-    <view class="section-head"><text class="section-title">本月陪伴</text></view><view wx:if="{{!report.memories.length}}" class="journal-note">没有达成的纪念。</view><view wx:for="{{report.memories}}" wx:key="key" class="journal-entry" data-id="{{item.item_id}}" bindtap="open"><view class="journal-caption">{{item.date}} · {{item.label}}</view><view class="journal-entry-name">{{item.name}} ›</view></view>
-  </view><view class="journal-note">费用和次数按事件日期归月。历史结果根据当前保存的记录重新计算，更正记录、修改目标、删除或恢复物品后会变化。</view>
-  <view class="export-actions"><button class="button light" bindtap="preview" disabled="{{imageBusy}}">预览图片</button><button class="button" bindtap="saveImage" disabled="{{imageBusy}}" loading="{{imageBusy}}">保存到相册</button></view><view wx:if="{{imageError}}" class="error" role="alert">{{imageError}}</view>
+  <block wx:elif="{{report}}">
+    <view class="report-paper">
+      <view class="report-masthead"><image src="/assets/paper/logo.png" class="report-logo" aria-hidden="true"/><image src="/assets/report/masthead.png" class="report-lettering" aria-hidden="true"/><text class="report-brand">物物记 · 收藏小报</text></view>
+      <view class="report-cover"><view class="report-date"><text class="report-year">{{edition.year}} / 第 {{edition.monthNumber}} 页</text><image src="{{edition.monthArt}}" class="month-art" aria-hidden="true"/><text class="month-label">{{edition.monthNumber}} 月</text></view><image src="/assets/report/archive-sketch.png" class="cover-sketch" aria-hidden="true"/></view>
+      <view class="report-dateline">{{report.is_current ? '截至今天 · ' : '记录截止 · '}}{{report.cutoff_date}}</view>
+      <view wx:if="{{!report.has_activity}}" class="blank-edition"><text class="blank-title">这一页，暂时留白。</text><text>这个月没有购入、维修、处置或纪念记录。</text><button class="journal-link" bindtap="add">录入一件物品 ›</button></view>
+      <block wx:else>
+        <view class="section-heading"><text class="section-number">01</text><text class="section-title">本月账目</text><text class="section-aside">购入 {{report.totals.purchase_count}} 件</text></view>
+        <view class="report-totals"><view><text>购置支出</text><text>¥{{report.totals.purchase_total}}</text></view><view><text>维修支出</text><text>¥{{report.totals.maintenance_total}}</text></view><view><text>处置回收</text><text>¥{{report.totals.disposal_total}}</text></view><view class="cashflow-row"><text>本月收支差额</text><text>¥{{report.totals.cashflow_net}}</text></view></view>
+        <view class="cashflow-note">{{edition.cashflowNote}}<text>此处为月内收支，不是物品累计净成本。</text></view>
+        <view class="section-heading"><text class="section-number">02</text><text class="section-title">钱花在哪里</text></view>
+        <view class="expense-figure"><view wx:for="{{edition.bars}}" wx:key="key" class="expense-row"><view class="expense-label"><text>{{item.label}}</text><text>¥{{item.amount}}</text></view><view class="expense-track"><view wx:if="{{item.width > 0}}" class="expense-line" style="width:{{item.width}}%;background:{{item.color}};"/></view></view><text class="figure-caption">购置、维修与回收按金额比例对照。</text></view>
+        <view wx:if="{{edition.finding}}" class="report-finding"><text class="finding-caption">这月的一笔</text><text class="finding-text">{{edition.finding}}</text><text wx:if="{{edition.findingBasis}}" class="finding-basis">{{edition.findingBasis}}</text><view class="finding-links"><button wx:for="{{report.purchase_leaders}}" wx:key="id" class="journal-link" data-id="{{item.id}}" bindtap="open">查看{{item.name}} ›</button></view></view>
+        <view wx:if="{{edition.purchases.length}}" class="section-heading"><text class="section-number">03</text><text class="section-title">本月收藏</text><text class="section-aside">{{edition.purchases.length}} 件</text></view>
+        <view wx:for="{{edition.purchases}}" wx:key="id" class="purchase-entry" data-id="{{item.id}}" bindtap="open" role="button" aria-label="查看{{item.name}}"><view class="purchase-art"><image src="{{item.art}}" mode="aspectFit" aria-hidden="true"/></view><view class="purchase-copy"><text class="purchase-date">{{item.purchase_date}}</text><text class="purchase-name">{{item.name}}</text><view class="purchase-price"><text>¥{{item.purchase_price}}</text><text aria-hidden="true">›</text></view></view></view>
+        <view wx:if="{{report.memories.length}}" class="section-heading"><text class="section-number">{{edition.purchases.length ? '04' : '03'}}</text><text class="section-title">陪伴纪念</text></view>
+        <view wx:for="{{report.memories}}" wx:key="key" class="memory-entry" data-id="{{item.item_id}}" bindtap="open" role="button" aria-label="查看{{item.name}}"><view class="memory-date"><text>{{item.date}}</text><text>{{item.label}}</text></view><text class="memory-name">{{item.name}} ›</text></view>
+      </block>
+      <view class="report-colophon"><text>每月一页，按当前保存的记录整理。</text><text>费用按事件日期归月；更正记录、修改目标、删除或恢复物品后，历史结果可能变化。</text></view>
+    </view>
+    <view class="export-actions"><button class="button light" bindtap="preview" disabled="{{imageBusy}}">预览画页</button><button class="button" bindtap="saveImage" disabled="{{imageBusy}}" loading="{{imageBusy}}">保存到相册</button></view>
+    <view class="export-note">图片收录最多三件购入物品与三条纪念；完整记录见本页。</view><view wx:if="{{imageError}}" class="error" role="alert">{{imageError}}</view>
   </block><canvas type="2d" id="report-canvas" class="report-canvas" aria-hidden="true"/>
 </view>

@@ -1,12 +1,66 @@
 @import "../../styles/journal.wxss";
-.month-select { min-height:48px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--accent); margin:16px 0; font-size:20px; }
-.month-select text { font-size:12px; color:var(--muted); }
-.report-paper { border-radius:3px; padding:18px; }
-.report-dateline { color:var(--muted); font-size:11px; letter-spacing:1px; padding-bottom:12px; border-bottom:1px solid var(--line); }
-.report-totals { margin:12px 0 22px; }
-.report-totals view { display:flex; justify-content:space-between; gap:14px; font-size:13px; padding:9px 0; }
-.report-totals text:first-child { flex:none; color:var(--muted); }
-.report-totals text:last-child { text-align:right; overflow-wrap:anywhere; min-width:0; }
-.export-actions { display:flex; gap:10px; margin-top:16px; }
-.export-actions .button { flex:1; }
-.report-canvas { position:fixed; left:-2000px; top:0; width:720px; height:1580px; pointer-events:none; }
+.report-navigation { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 18px; }
+.report-navigation .eyebrow { color:var(--ink); }
+.month-select { min-height:44px; display:flex; align-items:center; gap:12px; font-size:13px; color:var(--ink); }
+.month-select text { font-size:11px; color:var(--muted); border-bottom:.5px solid var(--accent); padding:3px 0; }
+.report-paper { background:var(--paper); padding:18px 17px; border:.5px solid var(--line); box-shadow:3px 4px 0 #E7DCCB; }
+.report-masthead { display:flex; align-items:center; gap:9px; padding-bottom:14px; border-bottom:1px solid var(--ink); position:relative; }
+.report-logo { width:27px; height:27px; flex:none; }
+.report-lettering { width:110px; height:26px; flex:none; }
+.report-brand { font-size:9px; margin-left:auto; color:var(--muted); letter-spacing:.6px; }
+.report-cover { display:flex; align-items:center; justify-content:space-between; padding:17px 0 7px; gap:10px; }
+.report-date { display:flex; flex-direction:column; flex:1; min-width:0; }
+.report-year { font-size:11px; letter-spacing:1.3px; color:var(--muted); }
+.month-art { width:128px; height:100px; margin:8px 0 0; }
+.month-label { font-size:11px; letter-spacing:2px; color:var(--muted); }
+.cover-sketch { width:108px; height:122px; flex:none; }
+.report-dateline { font-size:11px; color:var(--muted); border-bottom:.5px solid var(--line); padding:7px 0 13px; letter-spacing:.6px; }
+.section-heading { display:flex; align-items:baseline; gap:9px; margin:26px 0 10px; }
+.section-number { color:var(--accent); font-size:10px; letter-spacing:1px; }
+.section-heading .section-title { font-size:15px; font-weight:600; letter-spacing:1px; }
+.section-aside { margin-left:auto; font-size:11px; color:var(--muted); flex:none; }
+.report-totals view { display:flex; justify-content:space-between; gap:10px; font-size:14px; padding:9px 0; border-bottom:.5px solid var(--line); }
+.report-totals text:first-child { color:var(--muted); flex:none; }
+.report-totals text:last-child { text-align:right; overflow-wrap:anywhere; min-width:0; font-variant-numeric:tabular-nums; }
+.report-totals .cashflow-row { margin-top:5px; border-bottom:0; font-weight:600; }
+.report-totals .cashflow-row text:first-child { color:var(--ink); }
+.cashflow-note { color:var(--muted); font-size:11px; line-height:1.7; margin:3px 0 10px; }
+.cashflow-note text { display:block; }
+.expense-row { margin:13px 0; }
+.expense-label { display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:12px; }
+.expense-label text:last-child { min-width:0; overflow-wrap:anywhere; text-align:right; font-variant-numeric:tabular-nums; }
+.expense-track { height:8px; margin-top:7px; border-bottom:.5px solid var(--line); }
+.expense-line { height:5px; border-radius:1px; }
+.figure-caption { font-size:11px; color:var(--muted); display:block; line-height:1.6; margin-top:12px; }
+.report-finding { margin:22px 0 0; padding:13px 0 10px 13px; border-left:2px solid var(--sage); }
+.finding-caption { font-size:11px; color:var(--accent); letter-spacing:1.5px; display:block; margin-bottom:6px; }
+.finding-text { font-size:14px; line-height:1.7; font-weight:500; display:block; overflow-wrap:anywhere; }
+.finding-basis { font-size:11px; color:var(--muted); line-height:1.8; display:block; margin-top:8px; overflow-wrap:anywhere; }
+.finding-links { display:flex; flex-wrap:wrap; margin-top:3px; }
+.finding-links .journal-link { text-align:left; line-height:1.5; padding:10px 0; margin-right:10px; overflow-wrap:anywhere; }
+.purchase-entry { display:flex; gap:13px; padding:14px 0; border-bottom:.5px solid var(--line); align-items:flex-start; min-height:78px; }
+.purchase-art { width:57px; height:64px; flex:none; background:#F5EFE5; border:.5px solid var(--line); position:relative; }
+.purchase-art::before, .purchase-art::after { content:""; position:absolute; width:9px; height:9px; pointer-events:none; }
+.purchase-art::before { left:-1px; top:-1px; border-left:1px solid var(--accent); border-top:1px solid var(--accent); }
+.purchase-art::after { right:-1px; bottom:-1px; border-right:1px solid var(--accent); border-bottom:1px solid var(--accent); }
+.purchase-art image { width:100%; height:100%; }
+.purchase-copy { flex:1; min-width:0; }
+.purchase-date { display:block; color:var(--muted); font-size:11px; letter-spacing:.7px; }
+.purchase-name { display:block; font-size:14px; font-weight:600; overflow-wrap:anywhere; margin:5px 0; line-height:1.6; }
+.purchase-price { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.purchase-price text:first-child { overflow-wrap:anywhere; min-width:0; }
+.memory-entry { margin-top:14px; padding-bottom:14px; border-bottom:.5px solid var(--line); }
+.memory-date { display:flex; flex-wrap:wrap; gap:5px 10px; align-items:center; }
+.memory-date text:first-child { border:1px solid var(--accent); padding:3px 5px; color:var(--accent); font-size:11px; font-variant-numeric:tabular-nums; }
+.memory-date text:last-child { font-size:12px; color:var(--muted); }
+.memory-name { display:block; font-size:13px; margin-top:8px; overflow-wrap:anywhere; }
+.report-colophon { margin-top:27px; padding-top:13px; border-top:1px solid var(--ink); color:var(--muted); font-size:11px; line-height:1.8; }
+.report-colophon text { display:block; }
+.blank-edition { padding:32px 0 18px; display:flex; flex-direction:column; color:var(--muted); font-size:12px; line-height:1.8; }
+.blank-title { color:var(--ink); font-size:18px; margin-bottom:9px; letter-spacing:1px; }
+.blank-edition .journal-link { align-self:flex-start; padding-left:0; }
+.export-actions { display:flex; gap:10px; margin-top:22px; }
+.export-actions .button { flex:1; font-size:13px; }
+.export-note { color:var(--muted); font-size:11px; line-height:1.7; margin:10px 0; }
+.report-canvas { position:fixed; left:-2000px; top:0; width:720px; height:1000px; pointer-events:none; }
+@media (max-width:350px) { .report-paper { padding:16px 13px; } .report-brand { max-width:65px; font-size:9px; text-align:right; } .report-lettering { width:90px; height:22px; } .month-art { width:112px; height:87px; } .cover-sketch { width:94px; height:111px; } }

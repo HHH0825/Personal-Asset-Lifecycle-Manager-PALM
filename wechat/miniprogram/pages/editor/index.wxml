@@ -3,7 +3,7 @@
   <view class="page-heading heading-layout"><view class="heading-copy"><view class="eyebrow">物物记 · 物品档案</view><view class="title">{{itemId ? '编辑物品' : '添加物品'}}</view><view class="subtitle">从拥有的那一天开始，留下它的故事。</view></view><image class="heading-cat" src="/assets/stickers/camera.png" mode="aspectFit" aria-hidden="true"/></view>
   <view wx:if="{{loading}}" class="empty"><text class="empty-mark">· · ·</text>正在读取档案…</view>
   <view wx:elif="{{loadFailed}}" class="card error-panel">{{error}}<button class="button light" hover-class="button-hover" bindtap="load">重新读取</button></view>
-  <block wx:else>
+  <block wx:elif="{{draftReady}}">
     <view class="card form-card"><paper-label variant="identity" number="01" text="基本信息"/>
       <view class="field"><text class="field-label">物品名称</text><input class="{{focusField === 'name' ? 'is-focused' : ''}}" maxlength="120" value="{{form.name}}" data-key="name" bindinput="input" bindfocus="focus" bindblur="blur" cursor-spacing="24" placeholder="例如：一起去旅行的相机" placeholder-class="field-placeholder" aria-label="物品名称"/></view>
       <view class="field"><text class="field-label">分类</text><input class="{{focusField === 'category' ? 'is-focused' : ''}}" maxlength="60" value="{{form.category}}" data-key="category" bindinput="input" bindfocus="focus" bindblur="blur" cursor-spacing="24" placeholder="自由填写，如：摄影器材" placeholder-class="field-placeholder" aria-label="分类"/></view>
@@ -22,7 +22,17 @@
       <view wx:if="{{photoError}}" class="photo-error" role="alert">{{photoError}}<button wx:if="{{hasPhoto && !photoPath}}" class="button light" hover-class="button-hover" disabled="{{busy || photoBusy || photoLoading}}" bindtap="loadPhoto">重试读取</button></view>
       <view class="field"><text class="field-label">备注 <text class="optional">可选</text></text><textarea class="{{focusField === 'notes' ? 'is-focused' : ''}}" maxlength="1000" value="{{form.notes}}" data-key="notes" bindinput="input" bindfocus="focus" bindblur="blur" cursor-spacing="24" placeholder="记下与它有关的事" placeholder-class="field-placeholder" aria-label="备注"/></view>
     </view>
-    <view class="form-footer"><view wx:if="{{error}}" class="card error-panel">{{error}}</view><button class="button paper-action" hover-class="button-hover" bindtap="save" loading="{{busy}}" disabled="{{busy || photoBusy}}" aria-label="{{busy ? '保存中' : '保存物品'}}"><paper-label variant="save" text="{{busy ? '保存中…' : '保存物品'}}"/></button></view>
+    <view wx:if="{{!itemId && draftStatus}}" class="draft-note" role="status"><text>{{draftStatus}}</text><button class="draft-discard" bindtap="discardDraft" disabled="{{busy || photoBusy || draftWorking}}">丢弃草稿</button></view>
+    <view class="form-footer"><view wx:if="{{error}}" class="card error-panel">{{error}}</view><button class="button paper-action" hover-class="button-hover" bindtap="save" loading="{{busy}}" disabled="{{busy || photoBusy || !draftReady || draftWorking}}" aria-label="{{busy ? '保存中' : '保存物品'}}"><paper-label variant="save" text="{{busy ? '保存中…' : '保存物品'}}"/></button></view>
   </block>
   <canvas type="2d" id="photo-edit-canvas" class="photo-edit-canvas" aria-hidden="true"/>
+  <view wx:if="{{draftPrompt}}" class="draft-overlay">
+    <view class="draft-dialog" role="dialog" aria-label="继续上次填写">
+      <view class="section-title">继续上次填写？</view><view class="draft-title">{{draftName}}</view><view class="field-note">最后保存：{{draftTime}} · 仅存于本机</view>
+      <button class="button block" bindtap="continueDraft" disabled="{{draftWorking}}" loading="{{draftWorking}}">继续填写</button>
+      <button class="button light block" bindtap="restartDraft" disabled="{{draftWorking}}">重新填写</button>
+      <button class="draft-discard block" bindtap="closeDraft" disabled="{{draftWorking}}">暂不填写，返回清单</button>
+      <view wx:if="{{draftStatus}}" class="field-note" role="alert">{{draftStatus}}</view>
+    </view>
+  </view>
 </view>

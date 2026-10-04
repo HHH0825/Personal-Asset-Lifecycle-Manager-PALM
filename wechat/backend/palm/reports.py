@@ -2,6 +2,7 @@
 import calendar
 import re
 from datetime import date
+from decimal import Decimal, ROUND_HALF_UP
 from .database import get_db
 from .journey import item_journey
 from .repository import list_item_rows
@@ -25,7 +26,6 @@ def monthly_events(user_id, start, end):
     for kind, table, column, amount in (
         ('maintenance', 'maintenance_records', 'maintained_on', 'cost_cents'),
         ('disposal', 'disposal_records', 'disposed_on', 'proceeds_cents'),
-        ('usage', 'usage_records', 'used_on', None),
     ):
         aggregate = f'COALESCE(SUM(e.{amount}), 0)' if amount else '0'
         result[kind] = dict(get_db().execute(
@@ -63,14 +63,25 @@ def build_monthly_report(month, today, rows, events):
                                  'kind': 'target' if stamp['id'] == 'daily-target' else 'milestone'})
     purchases.sort(key=lambda item: (item['purchase_date'], item['id']), reverse=True)
     memories.sort(key=lambda item: (item['date'], item['item_id'], item['key']), reverse=True)
+    highest = max((row['purchase_cents'] for row in rows if first <= row['purchase_date'] <= last), default=None)
+    leaders = [
+        {'id': row['id'], 'name': row['name'], 'icon_type': row['icon_type'],
+         'purchase_price': money(row['purchase_cents']),
+         'share': str((Decimal(row['purchase_cents']) * 100 / Decimal(purchase_cents)).quantize(
+             Decimal('0.01'), rounding=ROUND_HALF_UP)) if purchase_cents else None}
+        for row in rows if first <= row['purchase_date'] <= last and row['purchase_cents'] == highest
+    ]
+    leaders.sort(key=lambda item: item['id'], reverse=True)
     return {
         'month': month, 'today': today.isoformat(), 'cutoff_date': last,
         'is_current': month == today.strftime('%Y-%m'),
         'totals': {'purchase_count': len(purchases), 'purchase_total': money(purchase_cents),
                    'maintenance_total': money(events['maintenance']['cents']),
-                   'disposal_total': money(events['disposal']['cents']), 'usage_count': events['usage']['count']},
-        'purchases': purchases, 'memories': memories,
-        'has_activity': bool(purchases or memories or any(event['count'] for event in events.values())),
+                   'disposal_total': money(events['disposal']['cents']),
+                   'cashflow_net': money(purchase_cents + events['maintenance']['cents'] - events['disposal']['cents']),
+                   'usage_count': 0},  # Deprecated compatibility field; usage is not monthly activity.
+        'purchases': purchases, 'memories': memories, 'purchase_leaders': leaders,
+        'has_activity': bool(purchases or memories or events['maintenance']['count'] or events['disposal']['count']),
     }
 
 

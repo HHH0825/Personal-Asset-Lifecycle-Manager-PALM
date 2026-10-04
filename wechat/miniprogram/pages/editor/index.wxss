@@ -10,3 +10,9 @@
 .photo-error { margin-top: 10px; font-size: 12px; line-height: 1.6; color: var(--danger); overflow-wrap: anywhere; }
 .photo-error .button { margin: 7px 0 0; }
 .photo-edit-canvas { position: absolute; left: -10000px; top: 0; width: 1px; height: 1px; pointer-events: none; }
+.draft-note { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 12px; color:var(--muted); font-size:12px; line-height:1.6; margin:12px 0; }
+.draft-discard { min-height:44px; margin:0; padding:8px 0; background:transparent; color:var(--ink-soft); font-size:12px; line-height:28px; }
+.draft-discard::after { border:none; }
+.draft-overlay { position:fixed; inset:0; z-index:100; background:rgba(73,59,53,.36); display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; }
+.draft-dialog { width:100%; max-width:360px; max-height:80vh; overflow:auto; background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; box-sizing:border-box; }
+.draft-title { margin-top:16px; overflow-wrap:anywhere; font-size:17px; line-height:1.5; }

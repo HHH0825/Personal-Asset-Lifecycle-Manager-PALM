@@ -1,7 +1,7 @@
 const api = require('../../utils/api')
 const view = require('../../utils/view')
 const { readStats, readCards } = require('../../utils/discovery')
-const { readMonthly } = require('../../utils/monthly')
+const { readMonthly, presentMonthly } = require('../../utils/monthly')
 const { navigate, resetNavigation } = require('../../utils/navigation')
 const emptyState = () => ({ cards: [], stats: null, statsLoading: true, cardsLoading: true,
   statsError: '', cardsError: '', monthly: null, monthlyLoading: true, monthlyError: '' })
@@ -40,7 +40,10 @@ Page({
   },
   loadStats() { return this.readSection('stats', '/stats', readStats) },
   loadCards() { return this.readSection('cards', '/insights', readCards) },
-  loadMonthly() { return this.readSection('monthly', '/reports/monthly', readMonthly) },
+  loadMonthly() { return this.readSection('monthly', '/reports/monthly', data => {
+    const report = readMonthly(data)
+    return { ...report, page: presentMonthly(report) }
+  }) },
   monthlyReport() { navigate(this, '/pages/monthly/index' + (this.data.monthly ? '?month=' + this.data.monthly.month : '')) },
   load() { return Promise.all([this.loadStats(), this.loadCards()]) },
   open(event) { navigate(this, `/pages/item/index?id=${event.currentTarget.dataset.id}`) },

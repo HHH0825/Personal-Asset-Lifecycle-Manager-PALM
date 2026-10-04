@@ -30,21 +30,13 @@ def build_stats(rows):
 
 def build_insights(today, all_rows, months, monthly, repairs):
     review = []
-    unrecorded = []
     for row in (row for row in all_rows if row["status"] != "disposed"):
         item = item_payload(row, today=today)
-        last_used = item["last_recorded_use"]
-        days_since = (today - date.fromisoformat(last_used)).days if last_used else None
-        item["days_since_last_recorded_use"] = days_since
+        item["days_since_last_recorded_use"] = None
         if row["status"] == "idle":
             item["review_reason"] = "manual_idle"
             review.append(item)
-        elif days_since is not None and days_since >= 90:
-            item["review_reason"] = "no_recent_record"
-            review.append(item)
-        elif last_used is None:
-            unrecorded.append(item)
-    review.sort(key=lambda item: (item["review_reason"] != "manual_idle", -(item["days_since_last_recorded_use"] or 0)))
+    review.sort(key=lambda item: item["id"], reverse=True)
 
     cards = []
 
@@ -82,15 +74,8 @@ def build_insights(today, all_rows, months, monthly, repairs):
 
     manual = [item for item in review if item["review_reason"] == "manual_idle"]
     if manual:
-        card("manual_idle", "使用复盘", f"你手动标记了 {len(manual)} 件闲置物品。",
+        card("manual_idle", "闲置物品", f"你手动标记了 {len(manual)} 件闲置物品。",
              "依据物品当前状态；这些物品仍计入当前持有资产。", manual)
-    inactive = [item for item in review if item["review_reason"] == "no_recent_record"]
-    for item in inactive:
-        card("inactive", "使用复盘", f"{item['name']} 距最近一次记录的使用已 {item['days_since_last_recorded_use']} 天。",
-             f"最近一条使用记录：{item['last_recorded_use']}。满 90 天提示核对；记录可能不完整，不自动判定闲置。", [item])
-    if unrecorded:
-        card("unknown_use", "记录缺口", f"{len(unrecorded)} 件使用中物品的使用情况未知。",
-             "这些物品从未填写使用记录，因此不参与 90 天判断。", unrecorded)
 
     if repairs and repairs[0]["total"] > 0:
         leaders = [row for row in repairs if row["total"] == repairs[0]["total"]]
@@ -117,7 +102,7 @@ def build_insights(today, all_rows, months, monthly, repairs):
                    for month in months],
         "review_threshold_days": 90,
         "review_items": review,
-        "unknown_usage_items": unrecorded,
+        "unknown_usage_items": [],
         "analysis_as_of": today.isoformat(),
         "analysis_cards": cards,
     }

@@ -69,7 +69,7 @@ def ensure_event_date(item, event_date):
         raise InputError("记录日期不能晚于处置日期")
 
 def ensure_purchase_date(item_id, purchase_date):
-    for table, column in (("usage_records", "used_on"), ("maintenance_records", "maintained_on"), ("disposal_records", "disposed_on")):
+    for table, column in (("maintenance_records", "maintained_on"), ("disposal_records", "disposed_on")):
         earliest = event_boundary(item_id, table, column, "MIN")
         if earliest and purchase_date > earliest:
             raise InputError("购买日期不能晚于已有生命周期记录")
@@ -86,10 +86,10 @@ def disposal_data(data, item):
     disposed_on = date_value(data, "disposed_on", "处置日期")
     if disposed_on < item["purchase_date"]:
         raise InputError("处置日期不能早于购买日期")
-    for table, column in (("usage_records", "used_on"), ("maintenance_records", "maintained_on")):
+    for table, column in (("maintenance_records", "maintained_on"),):
         last = event_boundary(item["id"], table, column, "MAX")
         if last and disposed_on < last:
-            raise InputError("处置日期不能早于已有使用或维修记录")
+            raise InputError("处置日期不能早于已有维修记录")
     method = data.get("method")
     if method not in ("sold", "gifted", "discarded", "other"):
         raise InputError("请选择有效的处置方式")

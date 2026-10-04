@@ -34,6 +34,20 @@ SVG 和对应透明 PNG 均位于 `miniprogram/assets/paper/`，PNG 按 SVG 的�
 | `header-small` | 640×260 | 详情、编辑、资料、记录、回收站的小拼贴 |
 | `grain` | 80×80 | 低对比度纸纤维纹理 |
 
+## 收藏小报画页素材
+
+画页另有十四组原创路径素材，位于 `miniprogram/assets/report/`，SVG 与三倍尺寸透明 PNG 一起提交。数字和刊头使用手绘路径，没有字体文件、远程资源或嵌入图片。
+
+| 文件名 | SVG 尺寸 | PNG 尺寸 | 用途 |
+| --- | --- | --- | --- |
+| `month-01` 至 `month-12` | 176×138 | 528×414 | 十二个月的细线月份字样，网页与 PNG 共用 |
+| `masthead` | 156×36 | 468×108 | “每月一页”手绘刊头，旁边保留原生品牌文字 |
+| `archive-sketch` | 130×148 | 390×444 | 收藏档案夹、纸签与小芽，放在画页顶部 |
+
+小报使用暖白纸面与燕麦包边；购置、维修、回收分别使用鼠尾草、奶咖与陶粉的深色细线，金额严格按同一尺度对照。月份字样和档案插画只放在页头，购入条目复用九种类型插画；名称、金额、日期和分析依据仍由原生文字绘制。网页辅助说明至少 11px，正文与金额保持深可可色。
+
+导出图片先测量文字，再计算图片高度，收录最多三件购入物品和三条纪念，剩余数量另行提示；空月份保留一页简洁的留白。长名称限制行数后省略，日期、金额与百分数尽量整段换行，中文句末标点不会单独占一行。图片高度与所展示内容有关，无固定大段空白。
+
 ## 页面使用
 
 收藏册新增九组 `type-*.svg` 线条插画：相机、房屋、杯子、衣物、收藏册、单车、球、工具与收纳盒，96×96 画布，导出为 288×288 透明 PNG。单列档案显示在 80px 照片区域，照片墙显示在等宽正方形区域；优先展示实际照片，失败回退类型插画，插画失败再显示原生类型标记。角贴、档案编号、日期戳由原生组件和样式呈现。
@@ -58,7 +72,11 @@ SVG 和对应透明 PNG 均位于 `miniprogram/assets/paper/`，PNG 按 SVG 的�
 npm install --prefix .qa-paper-tools sharp
 $env:WWJ_SHARP_PATH = Join-Path (Get-Location) '.qa-paper-tools\node_modules\sharp'
 node tools\export-paper.cjs
+node tools\export-report.cjs
 node --test tests\frontend.test.cjs
+node --test tests\monthly-report.test.cjs
 ```
 
 导出工具同步更新三十三张 PNG 与 `app.wxss` 中的纸纹数据；宽纸签 PNG 为 1080×168px，Logo 与六张头像 PNG 为 192×192px，六张导航 PNG 为 81×81px，类型插画为 288×288px，所有单张 PNG 小于 40 KiB。导航通过原生 tabBar 的 iconPath / selectedIconPath 读取，原有三个文字名称保留；普通与选中版只改变配色。提交素材时同时提交 SVG、PNG 和相关 WXSS，不提交 `.qa-*` 工具、数据库或临时项目。生成的图案均没有外部图片链接或字体依赖。
+
+`export-report.cjs` 从现有 SVG 导出十四张画页 PNG，不覆盖手工调整过的 SVG；新文件缺失时会生成默认原创稿。仅在希望重新绘制默认路径时使用 `node tools\export-report.cjs --redraw`，它会覆盖本组 SVG 的手工修改。

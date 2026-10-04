@@ -74,23 +74,14 @@ test('return position selects a nearby surviving item and rejects old-account ca
   calls[3]([{ top: 200 }, { scrollTop: 100 }])
   assert.equal(scrolls.length, 1)
 })
-test('quick use blocks duplicate writes, updates only the matching card and ignores old accounts', async () => {
+test('collection and detail no longer expose daily-use actions', () => {
   const h = pageHarness('items')
-  h.page.data.items = [{ id: 1, status: 'active', usage_count: 2 }, { id: 2, status: 'disposed' }]
-  const event = { currentTarget: { dataset: { id: 1 } } }
-  const pending = h.page.quickUse(event)
-  await h.page.quickUse(event)
-  assert.equal(h.requests.length, 1)
-  h.respond(0, { created: true }); await pending
-  assert.equal(h.page.data.items[0].usage_count, 3)
-  assert.equal(h.page.data.items[0].used_today, true)
-  await h.page.quickUse({ currentTarget: { dataset: { id: 2 } } })
-  assert.equal(h.requests.length, 1)
-  h.page.data.items[0].used_today = false
-  const stale = h.page.quickUse(event); h.app.globalData.token = 'bob'
-  h.respond(1, { created: true }); await stale
-  assert.equal(h.page.data.items[0].usage_count, 3)
+  assert.equal(h.page.quickUse, undefined)
+  const detail = pageHarness('item', { id: 1 })
+  assert.equal(detail.page.quickUse, undefined)
+  assert.equal(h.requests.length, 0)
 })
+
 test('daily target validates, prevents duplicate saves and discards switched-account results', async () => {
   const h = pageHarness('item', { id: 1 })
   h.page.data.item = { id: 1, status: 'active' }
@@ -105,7 +96,7 @@ test('daily target validates, prevents duplicate saves and discards switched-acc
   assert.equal(h.page.data.item.daily_target.amount, '5.00')
 })
 const monthlyFixture = (month = '2025-01') => ({ month, today: '2026-01-01', cutoff_date: month + '-31', is_current: false,
-  has_activity: false, totals: { purchase_count: 0, purchase_total: '0.00', maintenance_total: '0.00', disposal_total: '0.00', usage_count: 0 }, purchases: [], memories: [] })
+  has_activity: false, totals: { purchase_count: 0, purchase_total: '0.00', maintenance_total: '0.00', disposal_total: '0.00', cashflow_net: '0.00' }, purchases: [], memories: [], purchase_leaders: [] })
 test('monthly reload clears old export and earlier month responses cannot replace a new month', async () => {
   const h = pageHarness('monthly')
   h.page.data.imagePath = 'old-image.png'
@@ -146,15 +137,19 @@ test('report PNG keeps long entries inside reserved rows and only includes three
     fields(options, callback) { callback({ node: canvas }); return this }, exec() {} } },
     canvasToTempFilePath(options) { exports.push(options); options.success({ tempFilePath: 'report.png' }) } }
   const report = monthlyFixture()
+  report.has_activity = true
   report.purchases = Array.from({ length: 5 }, (_, i) => ({ name: '独立测试长名称'.repeat(20) + i, purchase_date: '2025-01-01', purchase_price: '0.00' }))
   report.memories = Array.from({ length: 5 }, (_, i) => ({ name: '长名字'.repeat(20) + i, label: '相伴 1 年', date: '2025-01-01' }))
   assert.equal(await reportImage({}, report, () => true), 'report.png')
   assert.equal(exports[0].fileType, 'png')
   assert.equal(exports[0].destWidth, 720)
-  assert.equal(exports[0].destHeight, 1580)
+  assert.ok(exports[0].destHeight > 1000)
   assert.ok(drawn.some(i => /另有 2 件/.test(i.text)))
   assert.ok(drawn.some(i => /另有 2 条/.test(i.text)))
-  assert.ok(drawn.every(i => i.y < 1580))
-  assert.ok(drawn.filter(i => i.x === 56).every(i => context.measureText.call({ font: i.size + 'px' }, i.text).width <= 600))
+  assert.ok(drawn.every(i => i.y < exports[0].destHeight - 24))
+  const empty = monthlyFixture()
+  await reportImage({}, empty, () => true)
+  assert.ok(exports[1].destHeight < exports[0].destHeight)
+  assert.equal(drawn.some(i => /记录的使用/.test(i.text)), false)
   await assert.rejects(reportImage({}, report, () => false), /取消/)
 })

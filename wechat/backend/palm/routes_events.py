@@ -1,7 +1,6 @@
-from datetime import date
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, abort, jsonify, request
 from .repository import (item_row, record_row, usage_rows, maintenance_rows, disposal_by_item,
-                         create_event, update_event, delete_event, quick_use_today,
+                         create_event, update_event, delete_event,
                          create_disposal, update_disposal, delete_disposal)
 from .services import ensure_event_date, event_data, disposal_data, maintenance_payload, disposal_payload
 from .validation import InputError, body
@@ -10,21 +9,22 @@ bp = Blueprint("events", __name__)
 
 @bp.post("/api/mp/items/<int:item_id>/usage/today")
 def quick_usage(item_id):
-    record, created = quick_use_today(item_id, date.today().isoformat())
-    return jsonify(record=dict(record), created=created), 201 if created else 200
+    item_row(item_id)
+    abort(410, description="使用记录已停用，历史记录仍可查看")
 
 @bp.route("/api/mp/items/<int:item_id>/<kind>", methods=["GET", "POST"])
 def events(item_id, kind):
     if kind not in ("usage", "maintenance"):
-        from flask import abort
         abort(404)
     item = item_row(item_id)
     table = f"{kind}_records"
     if request.method == "GET":
         records = usage_rows(item_id) if kind == "usage" else maintenance_rows(item_id)
         return jsonify([dict(record) if kind == "usage" else maintenance_payload(record) for record in records])
+    if kind == "usage":
+        abort(410, description="使用记录已停用，历史记录仍可查看")
     if item["status"] == "disposed":
-        raise InputError("已处置物品不能新增使用或维修记录")
+        raise InputError("已处置物品不能新增维修记录")
     fields = event_data(kind, body())
     ensure_event_date(item, fields["used_on" if kind == "usage" else "maintained_on"])
     record = record_row(table, create_event(item_id, kind, fields))
@@ -33,11 +33,12 @@ def events(item_id, kind):
 @bp.route("/api/mp/<kind>/<int:record_id>", methods=["PUT", "DELETE"])
 def event_detail(kind, record_id):
     if kind not in ("usage", "maintenance"):
-        from flask import abort
         abort(404)
     table = f"{kind}_records"
     record = record_row(table, record_id)
     item = item_row(record["item_id"])
+    if kind == "usage":
+        abort(410, description="使用记录已停用，历史记录仍可查看")
     if request.method == "DELETE":
         delete_event(kind, record_id)
         return "", 204

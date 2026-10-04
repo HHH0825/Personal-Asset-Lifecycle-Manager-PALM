@@ -2,10 +2,20 @@ const api = require('../../utils/api')
 const view = require('../../utils/view')
 const { navigate, resetNavigation } = require('../../utils/navigation')
 Page({
-  data: { item: null, timeline: [], photoPath: '', loading: true, busy: false, error: '', stamps: [], allStamps: [], expanded: false, targetEditing: false, targetInput: '', targetBusy: false, targetError: '' },
-  onLoad(options) { this.itemId = Number(options.id); this._sequence = 0 },
-  onShow() { this._visible = true; resetNavigation(this); if (getApp().requireSession() && this.itemId) this.load() },
-  onHide() { this._visible = false; this._sequence += 1; this.setData({ photoPath: '', item: null, timeline: [], stamps: [], allStamps: [], targetEditing: false, targetInput: '', targetError: '', targetBusy: false }) },
+  data: { item: null, timeline: [], allTimeline: [], photoPath: '', loading: true, busy: false, error: '', stamps: [], allStamps: [], expanded: false,
+    factsExpanded: false, timelineExpanded: false, historyExpanded: false, historyUsage: [], targetEditing: false, targetInput: '', targetBusy: false, targetError: '' },
+  onLoad(options) { this.itemId = Number(options.id); this._sequence = 0; this._token = getApp().globalData.token; this._scrollTop = 0 },
+  onShow() {
+    this._visible = true; resetNavigation(this)
+    if (this._token !== getApp().globalData.token) {
+      this._token = getApp().globalData.token; this._returnScroll = null; this._scrollTop = 0
+      this.setData({ item: null, photoPath: '', timeline: [], allTimeline: [], stamps: [], allStamps: [],
+        expanded: false, factsExpanded: false, timelineExpanded: false, historyExpanded: false, historyUsage: [], targetEditing: false })
+    }
+    if (getApp().requireSession() && this.itemId) this.load()
+  },
+  onPageScroll(event) { this._scrollTop = event.scrollTop },
+  onHide() { this._returnScroll = this._scrollTop; this._visible = false; this._sequence += 1; this._mutation = null; this.setData({ photoPath: '', targetEditing: false, targetInput: '', targetError: '', targetBusy: false, busy: false }) },
   onUnload() { this._visible = false; this._sequence += 1 },
   async load() {
     const id = this.itemId
@@ -16,29 +26,49 @@ Page({
       if (sequence !== this._sequence || !this._visible || token !== getApp().globalData.token) return
       const item = view.decorate(raw)
       const timeline = [
-        ...item.usage_records.map(r => ({ ...r, kind: 'usage', kindText: '使用', day: r.used_on, text: r.notes || '记录了一次使用' })),
         ...item.maintenance_records.map(r => ({ ...r, kind: 'maintenance', kindText: '维修', day: r.maintained_on, text: `${r.description} · ¥${r.cost}` })),
         ...(item.disposal ? [{ ...item.disposal, kind: 'disposal', kindText: '处置', day: item.disposal.disposed_on,
           text: `${view.METHODS[item.disposal.method]} · 回收 ¥${item.disposal.proceeds}` }] : [])
       ].sort((a, b) => b.day.localeCompare(a.day) || b.id - a.id).map(entry => ({ ...entry, key: `${entry.kind}-${entry.id}` }))
       const allStamps = [...item.milestones.earned].reverse()
-      this.setData({ item, timeline, loading: false, allStamps, stamps: this.data.expanded ? allStamps : allStamps.slice(0, 3) })
+      const historyUsage = (item.usage_records || []).slice().sort((a, b) => b.used_on.localeCompare(a.used_on) || b.id - a.id)
+      this.setData({ item, historyUsage, allTimeline: timeline, timeline: this.data.timelineExpanded ? timeline : timeline.slice(0, 3), loading: false,
+        allStamps, stamps: this.data.expanded ? allStamps : allStamps.slice(0, 1) }, () => this.restoreScroll(sequence, token))
       if (item.photo_url) api.downloadPhoto(id).then(photoPath => {
         if (sequence === this._sequence && this._visible && token === getApp().globalData.token) this.setData({ photoPath })
       }).catch(() => {})
     } catch (error) { if (sequence === this._sequence && this._visible && token === getApp().globalData.token) this.setData({ loading: false, error: view.errorMessage(error), item: null }) }
   },
+  restoreScroll(sequence, token) {
+    if (this._returnScroll == null || !wx.pageScrollTo) return
+    const top = this._returnScroll; this._returnScroll = null
+    const restore = rect => {
+      if (!this._visible || sequence !== this._sequence || token !== getApp().globalData.token) return
+      let height
+      try { height = (wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()).windowHeight } catch (_) {}
+      // Native scrolling also clamps to the page when measurement is unavailable.
+      const limit = rect && Number.isFinite(height) ? rect.height - height : top
+      wx.pageScrollTo({ scrollTop: Math.max(0, Math.min(top, limit)), duration: 0 })
+    }
+    try {
+      if (wx.createSelectorQuery) wx.createSelectorQuery().in(this).select('.detail-page').boundingClientRect(restore).exec()
+      else restore(null)
+    } catch (_) { restore(null) }
+  },
   edit() { navigate(this, `/pages/editor/index?id=${this.itemId}`) },
   photoFailed() { this.setData({ photoPath: '' }) },
   artFailed() { this.setData({ artFailed: true }) },
-  toggleStamps() { const expanded = !this.data.expanded; this.setData({ expanded, stamps: expanded ? this.data.allStamps : this.data.allStamps.slice(0, 3) }) },
+  toggleStamps() { const expanded = !this.data.expanded; this.setData({ expanded, stamps: expanded ? this.data.allStamps : this.data.allStamps.slice(0, 1) }) },
+  toggleFacts() { this.setData({ factsExpanded: !this.data.factsExpanded }) },
+  toggleHistory() { this.setData({ historyExpanded: !this.data.historyExpanded }) },
+  toggleTimeline() { const timelineExpanded = !this.data.timelineExpanded; this.setData({ timelineExpanded, timeline: timelineExpanded ? this.data.allTimeline : this.data.allTimeline.slice(0, 3) }) },
   editTarget() { this.setData({ targetEditing: true, targetError: '', targetInput: this.data.item.daily_target ? this.data.item.daily_target.amount : '' }) },
   targetInput(e) { this.setData({ targetInput: e.detail.value, targetError: '' }) },
   closeTarget() { if (!this.data.targetBusy) this.setData({ targetEditing: false, targetError: '' }) },
   saveTarget() { return this.writeTarget(this.data.targetInput.trim()) },
   cancelTarget() { return this.writeTarget(null) },
   async writeTarget(amount) {
-    if (this.data.targetBusy || !this.data.item || this.data.item.status === 'disposed' || !getApp().requireSession()) return
+    if (this.data.targetBusy || this.data.busy || !this._visible || !this.data.item || this.data.item.status === 'disposed' || !getApp().requireSession()) return
     if (amount !== null && (!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0)) {
       this.setData({ targetError: '请填写大于 0、最多两位小数的金额' }); return
     }
@@ -51,35 +81,53 @@ Page({
     } catch (error) { if (current()) this.setData({ targetError: view.errorMessage(error) }) }
     finally { if (current()) this.setData({ targetBusy: false }) }
   },
-  record(event) { wx.navigateTo({ url: `/pages/record/index?itemId=${this.itemId}&kind=${event.currentTarget.dataset.kind}` }) },
-  editRecord(event) {
-    const record = this.data.timeline.find(r => r.id === Number(event.currentTarget.dataset.id) && r.kind === event.currentTarget.dataset.kind)
-    if (record) wx.navigateTo({ url: `/pages/record/index?itemId=${this.itemId}&kind=${record.kind}&id=${record.id}` })
+  record(event) {
+    const kind = event.currentTarget.dataset.kind
+    if (['maintenance', 'disposal'].includes(kind)) navigate(this, `/pages/record/index?itemId=${this.itemId}&kind=${kind}`)
   },
-  async quickUse() {
-    if (this.data.busy) return
-    this.setData({ busy: true })
-    try {
-      const result = await api.request(`/items/${this.itemId}/usage/today`, { method: 'POST' })
-      wx.showToast({ title: result.created ? '已记录今天使用' : '今天已记录', icon: 'none' }); await this.load()
-    } catch (error) { wx.showToast({ title: view.errorMessage(error), icon: 'none' }) }
-    finally { this.setData({ busy: false }) }
+  editRecord(event) {
+    const record = this.data.allTimeline.find(r => r.id === Number(event.currentTarget.dataset.id) && r.kind === event.currentTarget.dataset.kind)
+    if (record) navigate(this, `/pages/record/index?itemId=${this.itemId}&kind=${record.kind}&id=${record.id}`)
   },
   async togglePin() {
-    try { await api.request(`/items/${this.itemId}/pin`, { method: 'PUT', data: { is_pinned: !this.data.item.is_pinned } }); await this.load() }
-    catch (error) { wx.showToast({ title: view.errorMessage(error), icon: 'none' }) }
+    return this.mutate(() => api.request(`/items/${this.itemId}/pin`, { method: 'PUT', data: { is_pinned: !this.data.item.is_pinned } }))
+  },
+  async more() {
+    if (this.data.busy || this.data.targetBusy || !this._visible || !this.data.item) return
+    const token = getApp().globalData.token, sequence = this._sequence
+    const actions = [{ text: this.data.item.is_pinned ? '取消置顶' : '置顶', method: 'togglePin' }]
+    if (this.data.item.photo_url) actions.push({ text: '移除照片', method: 'removePhoto' })
+    actions.push({ text: '移入回收站', method: 'remove' })
+    try {
+      const result = await new Promise((resolve, reject) => wx.showActionSheet({ itemList: actions.map(row => row.text), itemColor: '#493B35', success: resolve, fail: reject }))
+      if (this._visible && sequence === this._sequence && token === getApp().globalData.token && actions[result.tapIndex]) return this[actions[result.tapIndex].method]()
+    } catch (_) { /* Dismissal leaves the item unchanged. */ }
+  },
+  async mutate(action, after, confirm) {
+    if (this.data.busy || this.data.targetBusy || !this._visible || !this.data.item || !getApp().requireSession()) return
+    const token = getApp().globalData.token, sequence = this._sequence
+    const attempt = {}; this._mutation = attempt
+    const current = () => this._mutation === attempt && this._visible && token === getApp().globalData.token && sequence === this._sequence
+    this.setData({ busy: true })
+    try {
+      if (confirm) {
+        const agreed = await new Promise(resolve => wx.showModal({ ...confirm, success: result => resolve(result.confirm), fail: () => resolve(false) }))
+        if (!agreed || !current()) return
+      }
+      const result = await action()
+      if (!current()) return
+      if (after) after(result)
+      if (!confirm || !confirm.leavesPage) await this.load()
+    } catch (error) { if (current()) wx.showToast({ title: view.errorMessage(error), icon: 'none' }) }
+    finally { if (this._mutation === attempt && this._visible && token === getApp().globalData.token) { this._mutation = null; this.setData({ busy: false }) } }
   },
   async removePhoto() {
-    const confirm = await new Promise(resolve => wx.showModal({ title: '移除照片？', success: result => resolve(result.confirm) }))
-    if (!confirm) return
-    try { await api.request(`/items/${this.itemId}/photo`, { method: 'DELETE' }); await this.load() }
-    catch (error) { wx.showToast({ title: view.errorMessage(error), icon: 'none' }) }
+    return this.mutate(() => api.request(`/items/${this.itemId}/photo`, { method: 'DELETE' }), null, { title: '移除照片？' })
   },
   async remove() {
-    const confirm = await new Promise(resolve => wx.showModal({ title: '移入回收站？', content: '30 天内可在“我的”中恢复。', success: result => resolve(result.confirm) }))
-    if (!confirm) return
-    try { await api.request(`/items/${this.itemId}`, { method: 'DELETE' }); wx.showToast({ title: '已移入回收站' }); wx.navigateBack() }
-    catch (error) { wx.showToast({ title: view.errorMessage(error), icon: 'none' }) }
+    return this.mutate(() => api.request(`/items/${this.itemId}`, { method: 'DELETE' }), () => {
+      wx.showToast({ title: '已移入回收站' }); wx.navigateBack()
+    }, { title: '移入回收站？', content: '30 天内可在“我的”中恢复。', leavesPage: true })
   },
   onPullDownRefresh() { this.load().finally(() => wx.stopPullDownRefresh()) }
 })

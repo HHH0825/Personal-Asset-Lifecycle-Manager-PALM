@@ -72,6 +72,21 @@ test('item card navigation uses the item id and synchronous failures release the
   assert.equal(h.messages.length, 1)
 })
 
+test('discovery monthly preview accepts retired usage and rejects stale account results', async () => {
+  const h = harness('insights')
+  const report = { month: '2026-10', today: '2026-10-03', cutoff_date: '2026-10-03', is_current: true,
+    has_activity: true, totals: { purchase_count: 1, purchase_total: '10.00', maintenance_total: '0.00', disposal_total: '20.00', cashflow_net: '-10.00' },
+    purchases: [{ id: 1, name: '陶杯', icon_type: 'daily', purchase_date: '2026-10-01', purchase_price: '10.00' }],
+    purchase_leaders: [{ id: 1, name: '陶杯', purchase_price: '10.00', share: '100.00' }], memories: [] }
+  const first = h.page.loadMonthly(); h.respond(0, report); await first
+  assert.match(h.page.data.monthly.page.finding, /陶杯/)
+  assert.match(h.page.data.monthly.page.cashflowNote, /回收金额超过/)
+  assert.equal(h.page.data.monthly.page.monthArt, '/assets/report/month-10.png')
+  const late = h.page.loadMonthly(); h.page.onHide(); h.app.globalData.token = 'bob'
+  h.respond(1, report); await late
+  assert.equal(h.page.data.monthly, null)
+})
+
 test('discovery keeps the successful section and retries only the failed section', async () => {
   for (const failed of ['stats', 'cards']) {
     const h = harness('insights'), pending = h.page.load()

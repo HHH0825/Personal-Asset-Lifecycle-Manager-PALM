@@ -4,7 +4,7 @@
 .cover-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-bottom: 9px; }
 .detail-hero { border-radius: 11px; overflow: hidden; background: var(--ledger); }
 .photo { display: block; width: 100%; height: 200px; }
-.detail-no-photo { height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; color: var(--muted); font-size: 11.5px; }
+.detail-no-photo { height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; color: var(--muted); font-size: 11.5px; }
 .detail-symbol { font-size: 35px; color: var(--blue); line-height: 1.2; }
 .detail-art-line { width: 30px; height: 2px; border-radius: 2px; background: var(--primary); margin: 7.5px 0; }
 .detail-heading { margin: 12.5px 0; }
@@ -33,7 +33,6 @@
 .event-date { color: var(--muted); font-size: 11.5px; }
 .event { margin: 6px 0 0; padding: 12px; }
 .event-kind { color: var(--mint-ink); font-size: 13px; font-weight: 600; }
-.event-usage .event { background: var(--paper); }
 .event-maintenance .event { background: var(--paper); }
 .event-maintenance .timeline-dot { background: var(--peach-ink); }
 .event-maintenance .event-kind { color: var(--peach-ink); }
@@ -49,3 +48,18 @@
 .target-fill { height:100%; background:var(--mint-ink); }
 
 .detail-type-art { width:72px; height:72px; }
+.compact-heading { display:flex; align-items:flex-start; gap:12px; padding:12px 0; }
+.compact-art { width:64px; height:64px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--paper); border:1px solid var(--line); border-radius:12px; }
+.compact-art .detail-type-art { width:56px; height:56px; }
+.heading-text { min-width:0; flex:1; }
+.heading-text .title, .heading-text .subtitle { overflow-wrap:anywhere; }
+.detail-shortcuts { margin:12px 0 18px; }
+.fold-heading { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; margin:0; padding:0; text-align:left; background:transparent; line-height:1.5; }
+.fold-heading::after { border:none; }
+.facts { padding-top:8px; padding-bottom:8px; }
+.facts-body { padding:8px 0; }
+.compact-empty { color:var(--muted); font-size:13px; padding:12px 0; line-height:1.6; }
+
+.usage-history { margin-top:20px; padding-top:8px; padding-bottom:8px; }
+.history-entry { padding:12px 0; border-top:.5px solid var(--line); }
+.usage-history .journal-caption { margin-bottom:12px; }

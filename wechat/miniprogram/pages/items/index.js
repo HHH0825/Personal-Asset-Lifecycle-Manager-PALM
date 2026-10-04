@@ -4,7 +4,7 @@ const collection = require('../../utils/collection')
 const { navigate, resetNavigation } = require('../../utils/navigation')
 const { createThumbnailLoader } = require('../../utils/thumbnails')
 const initial = () => ({ items: [], shown: [], query: '', status: '', statusIndex: 0, category: '', categoryIndex: 0,
-  categories: ['全部分类'], layout: 'list', sortIndex: 0, sortOptions: collection.SORTS, photoPaths: {}, artErrors: {}, pending: {},
+  categories: ['全部分类'], layout: 'list', sortIndex: 0, sortOptions: collection.SORTS, photoPaths: {}, artErrors: {},
   statusOptions: ['全部状态', '使用中', '闲置', '已处置'], loading: true, error: '' })
 Page({
   data: initial(),
@@ -25,7 +25,7 @@ Page({
   onPageScroll(e) { this._scroll = e.scrollTop },
   onHide() {
     this._visible = false; this._sequence++; this.disconnectPhotos(); this._photos.reset()
-    this.setData({ photoPaths: {}, items: [], shown: [], pending: {} })
+    this.setData({ photoPaths: {}, items: [], shown: [] })
   },
   onUnload() { this._visible = false; this._sequence++; this.disconnectPhotos(); this._photos.dispose() },
   current(seq, token) { return seq === this._sequence && this._visible && getApp().globalData.token === token },
@@ -55,13 +55,21 @@ Page({
   rememberPosition(done) {
     if (!wx.createSelectorQuery) { if (done) done(); return }
     const seq = this._sequence, token = getApp().globalData.token
-    wx.createSelectorQuery().in(this).selectAll('.item-card').boundingClientRect(rects => {
-      if (!this.current(seq, token)) return
+    const attempt = {}; this._positionAttempt = attempt
+    let finished = false
+    const finish = rects => {
+      if (finished) return
+      finished = true; clearTimeout(timer)
+      if (this._positionAttempt !== attempt || !this.current(seq, token)) return
       const first = (rects || []).find(r => r.bottom > 0)
-      this._anchor = first ? { id: first.dataset.id, offset: first.top,
-        index: this.data.shown.findIndex(i => i.id === Number(first.dataset.id)) } : null
+      const id = first && (first.dataset && first.dataset.id || (String(first.id || '').match(/^item-(\d+)$/) || [])[1])
+      if (id) this._anchor = { id, offset: first.top, index: this.data.shown.findIndex(i => i.id === Number(id)) }
       if (done) done()
-    }).exec()
+    }
+    // Position measurement is optional; a stalled renderer must not block navigation.
+    const timer = setTimeout(() => finish(), 150)
+    try { wx.createSelectorQuery().in(this).selectAll('.item-card').boundingClientRect(finish).exec() }
+    catch (_) { finish() }
   },
   restorePosition() {
     if (!wx.createSelectorQuery || !wx.pageScrollTo) return
@@ -109,19 +117,5 @@ Page({
   },
   open(e) { const id = e.currentTarget.dataset.id; this.rememberPosition(() => navigate(this, '/pages/item/index?id=' + id)) },
   add() { this.rememberPosition(() => navigate(this, '/pages/editor/index')) },
-  async quickUse(e) {
-    const id = Number(e.currentTarget.dataset.id), item = this.data.items.find(i => i.id === id)
-    if (!item || item.status === 'disposed' || item.used_today || this.data.pending[id] || !getApp().requireSession()) return
-    const seq = this._sequence, token = getApp().globalData.token
-    this.setData({ ['pending.' + id]: true })
-    try {
-      const result = await api.request('/items/' + id + '/usage/today', { method: 'POST' })
-      if (!this.current(seq, token)) return
-      this.setData({ items: this.data.items.map(row => row.id === id ? { ...row, used_today: true,
-        usage_count: row.usage_count + (result.created ? 1 : 0) } : row) })
-      this.apply(); wx.showToast({ title: result.created ? '已记录今天使用' : '今天已记录', icon: 'none' })
-    } catch (error) { if (this.current(seq, token)) wx.showToast({ title: view.errorMessage(error), icon: 'none' }) }
-    finally { if (this.current(seq, token)) this.setData({ ['pending.' + id]: false }) }
-  },
   onPullDownRefresh() { this.load().finally(() => wx.stopPullDownRefresh()) }
 })

@@ -2,6 +2,7 @@ import unittest
 from datetime import date
 import test_backend as fixtures
 from palm.reports import month_bounds
+from palm.database import get_db
 
 class MonthlyTest(unittest.TestCase):
     setUp = fixtures.MiniApiTest.setUp
@@ -17,19 +18,21 @@ class MonthlyTest(unittest.TestCase):
         for day, cost in [('2025-01-02', '10.01'), ('2025-01-03', '0'), ('2025-02-03', '99.99')]:
             self.assertEqual(self.client.post(f'/api/mp/items/{item}/maintenance', headers=h,
                 json={'maintained_on': day, 'cost': cost, 'description': '检查'}).status_code, 201)
-        usage = self.client.post(f'/api/mp/items/{item}/usage', headers=h, json={'used_on': '2025-01-31', 'notes': ''}).json
-        self.client.post(f'/api/mp/items/{item}/usage', headers=h, json={'used_on': '2025-02-01', 'notes': ''})
+        with self.app.app_context():
+            get_db().executemany('INSERT INTO usage_records (item_id, used_on, notes) VALUES (?, ?, ?)',
+                                 [(item, '2025-01-31', ''), (item, '2025-02-01', '')])
+            get_db().commit()
         self.client.post(f'/api/mp/items/{item}/disposal', headers=h,
             json={'disposed_on': '2025-03-01', 'method': 'sold', 'proceeds': '2000', 'notes': ''})
         def report(month): return self.client.get('/api/mp/reports/monthly?month=' + month, headers=h).json
         january = report('2025-01')
         self.assertEqual(january['totals'], {'purchase_count': 1, 'purchase_total': '1200.00',
-            'maintenance_total': '10.01', 'disposal_total': '0.00', 'usage_count': 1})
+            'maintenance_total': '10.01', 'disposal_total': '0.00', 'cashflow_net': '1210.01', 'usage_count': 0})
         self.assertEqual(report('2025-02')['totals']['maintenance_total'], '99.99')
         self.assertEqual(report('2025-03')['totals']['disposal_total'], '2000.00')
         self.assertEqual(report('2024-12')['has_activity'], False)
-        self.client.put('/api/mp/usage/' + str(usage['id']), headers=h, json={'used_on': '2025-02-02', 'notes': ''})
         self.assertEqual(report('2025-01')['totals']['usage_count'], 0)
+        self.assertEqual(report('2025-03')['totals']['cashflow_net'], '-2000.00')
         self.client.delete(f'/api/mp/items/{item}', headers=h)
         self.assertEqual(report('2025-01')['has_activity'], False)
         self.client.post(f'/api/mp/trash/{item}/restore', headers=h)

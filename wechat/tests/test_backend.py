@@ -68,9 +68,11 @@ class MiniApiTest(unittest.TestCase):
         token = self.token("owner")
         headers = self.headers(token)
         item_id = self.create_item(token)
-        usage = self.client.post(f"/api/mp/items/{item_id}/usage", headers=headers,
-                                 json={"used_on": "2025-02-01", "notes": "拍照"})
-        self.assertEqual(usage.status_code, 201)
+        # Represent an existing account's historical record, rather than using the retired API.
+        with self.app.app_context():
+            get_db().execute("INSERT INTO usage_records (item_id, used_on, notes) VALUES (?, ?, ?)",
+                             (item_id, "2025-02-01", "拍照"))
+            get_db().commit()
         repair = self.client.post(f"/api/mp/items/{item_id}/maintenance", headers=headers,
                                   json={"maintained_on": "2025-03-01", "cost": "100", "description": "清洁"})
         self.assertEqual(repair.status_code, 201)

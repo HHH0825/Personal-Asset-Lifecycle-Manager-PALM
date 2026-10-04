@@ -16,7 +16,7 @@
 .sort-control { min-height:44px; line-height:44px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; color:var(--muted); }
 .view-switch { display:flex; flex:0 0 136px; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
 .view-button { width:68px; max-width:68px; flex:none; margin:0; padding:0 8px; min-height:44px; line-height:44px; border-radius:0; font-size:12px; color:var(--muted); background:var(--paper); }
-.view-button::after,.quick-use::after,.clear-filter::after { border:0; }
+.view-button::after,.clear-filter::after { border:0; }
 .view-button.selected { background:var(--sage); color:var(--mint-ink); font-weight:600; }
 .result-row { min-height:32px; color:var(--muted); font-size:11px; }
 .clear-filter { margin:0; padding:0 3px; line-height:32px; font-size:11px; color:var(--accent); background:transparent; }
@@ -40,9 +40,6 @@
 .item-metrics .metric-value { font-size:14px; }
 .item-footer { display:flex; flex-wrap:wrap; justify-content:space-between; gap:5px; color:var(--muted); font-size:10px; }
 .date-stamp { font-variant-numeric:tabular-nums; }
-.quick-use { display:flex; align-items:center; justify-content:center; min-height:44px; margin:10px 0 0; padding:0 8px; line-height:1.4; font-size:12px; font-weight:400; border-top:.5px solid var(--line); border-radius:0; background:transparent; color:var(--mint-ink); }
-button.quick-use { width:100%; min-width:0; box-sizing:border-box; }
-button.quick-use[disabled] { color:var(--muted); background:transparent; opacity:1; }
 .wall { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
 .wall .item-card { margin:0; padding:9px; display:flex; flex-direction:column; min-width:0; }
 .wall .item-top { display:block; }
@@ -55,5 +52,4 @@ button.quick-use[disabled] { color:var(--muted); background:transparent; opacity
 .wall-metrics { margin:10px 0; font-size:11px; line-height:1.8; overflow-wrap:anywhere; }
 .wall-metrics text { display:block; }
 .wall .item-footer { margin-top:auto; font-size:9px; }
-.wall .quick-use { font-size:11px; }
 @media (max-width:350px) { .item-card { padding:11px; } .item-top { gap:10px; } .item-metrics .metric { padding:0 5px; } .item-metrics .metric-value { font-size:12px; } .item-metrics .metric-label { font-size:10px; } .view-button { padding:0 8px; } .wall { gap:8px; } }
