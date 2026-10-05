@@ -233,3 +233,7 @@ node tools/photo-benchmark.cjs .venv/Scripts/python.exe
 ![照片墙与固定照片区域](docs/images/photos-wall.png)
 
 [多尺寸检查与测试对比](docs/visual-check.md#2026-10-04照片缩略图与当前会话缓存)。Android／iPhone 的真实照片和权限操作仍按真机清单验收。
+
+## 许可证
+
+源码采用 [PolyForm Noncommercial 1.0.0](LICENSE)；超出许可范围的商业使用须另行取得书面授权，可通过 [GitHub Issues](https://github.com/HHH0825/Personal-Asset-Lifecycle-Manager-PALM/issues) 联系作者。历史 MIT 授权见 [NOTICE](NOTICE)，第三方材料仍遵循原许可。

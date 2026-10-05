@@ -13,7 +13,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-x64-254b3d?style=flat-square&amp;logo=windows&amp;logoColor=white" alt="Windows x64 安装版">
   <a href="https://github.com/HHH0825/Personal-Asset-Lifecycle-Manager-PALM/releases"><img src="https://img.shields.io/badge/Release-Download-b77f59?style=flat-square" alt="下载 Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-b77f59?style=flat-square" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial-b77f59?style=flat-square" alt="PolyForm Noncommercial 1.0.0"></a>
 </p>
 
 <p align="center">
@@ -45,3 +45,7 @@
 ## 文档与测试
 
 [使用说明](docs/user-guide.md) · [接口](docs/api.md) · [架构](docs/architecture.md) · [备份与升级](docs/backup-restore.md) · [测试与演示](docs/testing.md)
+
+## 许可证
+
+源码采用 [PolyForm Noncommercial 1.0.0](LICENSE)，允许符合条款的非商业使用；超出许可范围的商业使用须另行取得书面授权，可通过 [GitHub Issues](https://github.com/HHH0825/Personal-Asset-Lifecycle-Manager-PALM/issues) 联系作者。历史 MIT 授权及第三方许可见 [授权说明](docs/licensing.md)。
